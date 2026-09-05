@@ -221,10 +221,16 @@ try {
       page.on("pageerror", (error) => console.error(`Browser error: ${error.message}`));
       page.on("console", (message) => { if (message.type() === "error") console.error(message.text()); });
       try {
-        await page.setRequestInterception(true);
-        page.on("request", (request) => {
-          if (request.url() === `${origin}/lifecycle.jar`) void request.respond({ status: 200, contentType: "application/java-archive", body: jar });
-          else void request.continue();
+        // Only pause the self-authored fixture request. Pausing every request
+        // can strand pthread worker imports in Chrome during initialization.
+        const network = await page.createCDPSession();
+        await network.send("Fetch.enable", { patterns: [{ urlPattern: `${origin}/lifecycle.jar` }] });
+        network.on("Fetch.requestPaused", ({ requestId }) => {
+          void network.send("Fetch.fulfillRequest", {
+            requestId, responseCode: 200,
+            responseHeaders: [{ name: "Content-Type", value: "application/java-archive" }],
+            body: jar.toString("base64")
+          });
         });
         await page.goto(origin);
         await page.evaluate(async () => {
