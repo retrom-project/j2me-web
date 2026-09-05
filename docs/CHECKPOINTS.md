@@ -31,3 +31,7 @@
 - 只有旧数据已通过真实恢复验证时，才能将旧 ABI 保留在 `readableSaveAbis`。
 - 不兼容变更使用新的格式名和语义化 major/minor 版本，不重新解释 v1。
 - 如需新实例直接恢复 Java 执行点，必须在 miniJVM/FreeJ2ME 层实现堆、线程、Wasm 调用栈和媒体状态的一致性序列化；不能用截图或原始 Wasm memory 拷贝伪装。
+
+## Retrom 准入边界
+
+`InstantCheckpointMidlet` 的位置只存在 Java 对象内存中；新实例在恢复后收到一次输入时必须从存档位置继续。RMS 文件树即使非空、格式有效，也不能满足这一不变量。`npm run test:instant-checkpoint` 固定检查该边界，作为新执行快照 ABI 的回归入口。当前 miniJVM 的安全点只能暂停线程，不能重建 Java 堆引用、线程/锁与等待状态、递归解释器的 native continuation、浏览器图形和媒体句柄。实现必须覆盖这些实际状态，不能把原始 Wasm 内存复制当作完整快照。

@@ -14,6 +14,12 @@ npm run build:runtime
 
 构建还会将仓库自有的 `test/java/org/j2me/test/LifecycleMidlet.java` 编译到被忽略的 `.cache/test-runtime/lifecycle.jar`，不加入运行时或 Release。安装 Chrome 后运行 `npm run test:lifecycle`，可独立于商业游戏验证真实 JVM 暂停/恢复、跨 frame 输入、截图尺寸、RMS checkpoint、IDBFS 游戏隔离、加载取消、运行期故障和转码器内存稳定性。
 
+## 即时 checkpoint 准入
+
+`npm run test:instant-checkpoint` 使用由 `build:runtime` 生成的项目自有 `InstantCheckpointMidlet`，只保存在内存中的位置不会写入 RMS。它经过真实 Wasm，验证键盘、标准手柄的方向/确认/取消、截图尺寸、销毁后新实例恢复、继续输入及游戏自身退出清理，结果写入被忽略的 `.cache/evidence/instant-checkpoint.json`。该命令必须在 `j2me-rms` 上失败；失败表示能力未实现，不能改为 expected-failure 或放宽断言。它是核心准入诊断，不替代 Retrom 导入、审核预览、Launch、共享 dispatcher 和 Save 的产品验收。
+
+构建只复制 `scripts/adapter-resources.sh` 列出的适配层资源；upstream 附带的游戏 JAR 和预编译 FreeJ2ME JAR 不进入 runtime。嵌套 FreeJ2ME Plus JAR 从固定源码编译。`test/adapter-resources.test.mjs` 验证这一闭合输入边界。
+
 ## 维护者本地回归
 
 仓库及 Release 不包含商业游戏或测试 JAR。真实游戏回归依赖维护者合法取得的本地样本，因此不属于全新检出后即可运行的公开测试。

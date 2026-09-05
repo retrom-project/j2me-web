@@ -120,7 +120,7 @@ try {
     commit,
     digestPolicy: "RELEASE_ARCHIVE_AND_EXTRACTED_ASSETS_SHA256",
     packageVersion: packageJson.version,
-    repository: "https://github.com/xxxsen/j2me-web",
+    repository: "https://github.com/retrom-project/j2me-web",
     schemaVersion: 2,
     sourceCommits: {
       freej2meOnMinijvm: "abc7aebca03b914df289e8e2f566c3a8b4173464",

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "forkRepository": "https://github.com/retrom-project/j2me-web",
+  "defaultBranch": "main",
+  "adapterAbi": "j2me-rms",
+  "releaseTagPattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+  "candidateAssets": [
+    "j2me-runtime.js",
+    "runtime.js",
+    "runtime-loader.js",
+    "runtime.wasm",
+    "runtime.data",
+    "runtime.worker.js",
+    "audio-transcoder.wasm",
+    "audio-transcoder.worker.js",
+    "runtime-manifest.json",
+    "THIRD_PARTY_NOTICES.md"
+  ]
+}

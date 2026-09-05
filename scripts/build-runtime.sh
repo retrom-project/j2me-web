@@ -4,11 +4,11 @@ set -euo pipefail
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CACHE_ROOT="$PROJECT_ROOT/.cache/upstream"
 OUTPUT_ROOT="$PROJECT_ROOT/public/runtime"
-MINIJVM_REPOSITORY="${MINIJVM_REPOSITORY:-https://github.com/xxxsen/miniJVM.git}"
+MINIJVM_REPOSITORY="${MINIJVM_REPOSITORY:-https://github.com/retrom-project/miniJVM.git}"
 MINIJVM_COMMIT="${MINIJVM_COMMIT:-8d67a8c029836ad123eef0b5f7e8ab6298b2bb57}"
-FREEJ2ME_REPOSITORY="${FREEJ2ME_REPOSITORY:-https://github.com/xxxsen/freej2meOnMinijvm.git}"
+FREEJ2ME_REPOSITORY="${FREEJ2ME_REPOSITORY:-https://github.com/retrom-project/freej2meOnMinijvm.git}"
 FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-abc7aebca03b914df289e8e2f566c3a8b4173464}"
-FREEJ2ME_PLUS_REPOSITORY="${FREEJ2ME_PLUS_REPOSITORY:-https://github.com/xxxsen/freej2me-plus.git}"
+FREEJ2ME_PLUS_REPOSITORY="${FREEJ2ME_PLUS_REPOSITORY:-https://github.com/retrom-project/freej2me-plus.git}"
 FREEJ2ME_PLUS_COMMIT="${FREEJ2ME_PLUS_COMMIT:-f416be17e069ec9658b868ce0a580992b9270097}"
 TINYSOUNDFONT_REPOSITORY="https://github.com/schellingb/TinySoundFont.git"
 TINYSOUNDFONT_COMMIT="853a0a171759f1ddba0de1442133a75912bbeffa"
@@ -67,7 +67,7 @@ if [[ ! -f "$SOUNDFONT_CACHE" ]] || ! echo "$SOUNDFONT_SHA256  $SOUNDFONT_CACHE"
   mv "$SOUNDFONT_DOWNLOAD" "$SOUNDFONT_CACHE"
 fi
 
-BUILD_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/j2me-web-build.XXXXXX")
+BUILD_ROOT=$(mktemp -d "$PROJECT_ROOT/.cache/build.XXXXXX")
 cleanup() {
   docker run --rm \
     -v "$BUILD_ROOT:/build" \
@@ -162,7 +162,9 @@ javac -source 8 -target 8 -encoding UTF-8 \
   -bootclasspath "$DIST/lib/minijvm_rt.jar" \
   -cp "$DIST/lib/glfw_gui.jar:$DIST/lib/xgui.jar:$DIST/lib/freej2me-plus.jar" \
   -d /build/classes/freej2me @/build/classes/freej2me/sources.txt
-cp -R "$APP/src/main/resource/." /build/classes/freej2me/
+source /project/scripts/adapter-resources.sh
+copy_adapter_resources "$APP/src/main/resource" /build/classes/freej2me
+mkdir -p /build/classes/freej2me/lib
 cp "$DIST/lib/freej2me-plus.jar" /build/classes/freej2me/lib/freej2me.jar
 jar cf "$DIST/lib/freej2meonminijvm.jar" -C /build/classes/freej2me .
 
@@ -195,6 +197,11 @@ javac -source 8 -target 8 -encoding UTF-8 \
   -cp "$DIST/lib/freej2me-plus.jar" \
   -d /build/classes/lifecycle /project/test/java/org/j2me/test/LifecycleMidlet.java
 jar cfm /build/lifecycle.jar /project/test/java/lifecycle.mf -C /build/classes/lifecycle .
+mkdir -p /build/classes/instant-checkpoint
+javac -source 8 -target 8 -encoding UTF-8 \
+  -cp "$DIST/lib/freej2me-plus.jar" \
+  -d /build/classes/instant-checkpoint /project/test/java/org/j2me/test/InstantCheckpointMidlet.java
+jar cfm /build/instant-checkpoint.jar /project/test/java/instant-checkpoint.mf -C /build/classes/instant-checkpoint .
 '
 
 echo "[2/4] Compiling miniJVM to WebAssembly"
@@ -275,6 +282,6 @@ cp "$BUILD_ROOT/audio-transcoder/audio-transcoder.glue.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/audio-transcoder.worker.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/runtime-loader.js" "$OUTPUT_ROOT/"
 mkdir -p "$PROJECT_ROOT/.cache/test-runtime"
-cp "$BUILD_ROOT/lifecycle.jar" "$PROJECT_ROOT/.cache/test-runtime/"
+cp "$BUILD_ROOT/lifecycle.jar" "$BUILD_ROOT/instant-checkpoint.jar" "$PROJECT_ROOT/.cache/test-runtime/"
 
 echo "Runtime built in $OUTPUT_ROOT"
