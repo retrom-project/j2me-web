@@ -10,6 +10,14 @@ freej2meOnMinijvm 的顶层授权仍需明确；在授权问题解决前，不�
 
 `j2me-web`、`miniJVM`、`freej2meOnMinijvm` 和 `freej2me-plus` 的长期维护分支均为 `main`。一个可独立说明的功能或 bugfix 使用一个提交，不混入无关格式化。
 
+## Retrom PFB 候选
+
+四个仓库的规范地址均为 `https://github.com/retrom-project/<repository>`；迁移保留原有 commit/tag，第三方 upstream 与许可证归属保持原义。`j2me-web` 是本项目原创集成层，长期分支仍为 `main`；PFB 工作分支使用 `feat/*`、`fix/*` 或 `build/*`，从最新远端 `main` 创建。
+
+`retrom-fork.json` 记录其来源和分支，`candidateAssets` 记录解包候选文件。显式入口为 `.github/rpg-runtime/build-candidate.sh <absolute-empty-output>`，由 Host 的 `pfb-core-build CORE=j2me` 调用。构建只发生在本仓库，复用 `.cache/upstream` Git 对象，临时构建目录也位于本仓库 `.cache/`；本地依赖参数应指向同一 PFB 的 `retrom-other/` worktree，并保留固定完整 commit。支持仓库未提交修改不会自动成为固定输入。
+
+候选包含真实 `RETROM_CORE_CANDIDATE_V1` 描述符、源码指纹和逐文件大小/摘要，不创建或伪造 Release tag。它如实声明 `j2me-rms` ABI。Retrom Provider 可通过明确的 `GAME_SAVE` checkpoint 语义接入，必须验证游戏原生保存、整包传输、新 Launch 启动前导入、游戏内读档和继续输入，并由 Host 根据公共语义展示提示。候选构建成功本身不代表产品链准入。`npm run test:instant-checkpoint` 继续检验尚未实现的执行快照，不能为 RMS 接入放宽断言或宣称即时恢复；原有 RMS 格式保持原语义。
+
 ## Tag
 
 fork 使用 annotated tag：

@@ -55,6 +55,14 @@ export class GameRuntimeController {
   pause() { return this.enqueue(() => this.performPause()); }
   resume() { return this.enqueue(() => this.performResume()); }
   checkpoint() { return this.enqueue(() => this.performCheckpoint()); }
+  acknowledgeCheckpoint(payload) {
+    return this.enqueue(async () => {
+      this.requireActiveState();
+      await this.requireAdapter().acknowledgeCheckpoint(payload);
+      this.requireActiveState();
+      this.refreshAvailability();
+    });
+  }
 
   async screenshot() {
     this.requireCapability("screenshot");
@@ -256,7 +264,8 @@ export class GameRuntimeController {
 
   refreshAvailability() {
     const next = normalizedAvailability(this.requireAdapter().getCheckpointAvailability());
-    if (next.available !== this.lastAvailability.available || next.blocker !== this.lastAvailability.blocker) {
+    if (next.available !== this.lastAvailability.available || next.blocker !== this.lastAvailability.blocker ||
+      next.revision !== this.lastAvailability.revision) {
       this.lastAvailability = next;
       this.emit({ type: "CHECKPOINT_AVAILABILITY_CHANGED", availability: next });
     }

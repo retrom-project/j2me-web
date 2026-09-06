@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+MIDlet-Name: Presentation Regression
+MIDlet-Version: 1.0.0
+MIDlet-Vendor: Retrom
+MIDlet-1: Presentation Regression,,org.j2me.test.PresentationMidlet
+

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "packageName": "j2me-web",
-  "packageVersion": "0.3.3",
+  "packageVersion": "0.3.4",
   "publicApiVersion": 1,
   "admissionStatus": "CANDIDATE",
   "adapter": {
@@ -10,6 +10,9 @@
     "adapterAbi": "j2me-rms",
     "checkpointFormat": "j2me-rms-bundle-v1",
     "checkpointSemantics": "RMS_FILE_TREE",
+    "checkpointIntegrity": "FREEJ2ME_METADATA_REFERENCES",
+    "checkpointChangeDetection": "STABLE_RECORD_CONTENT",
+    "checkpointAcknowledgment": "HOST_PERSISTED_PAYLOAD",
     "pauseSemantics": "VM_SAFEPOINTS",
     "screenshotSemantics": "LOGICAL_VIEWPORT",
     "browserStorageNamespace": "JAR_SHA256",

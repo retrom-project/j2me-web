@@ -4,12 +4,12 @@ set -euo pipefail
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CACHE_ROOT="$PROJECT_ROOT/.cache/upstream"
 OUTPUT_ROOT="$PROJECT_ROOT/public/runtime"
-MINIJVM_REPOSITORY="${MINIJVM_REPOSITORY:-https://github.com/xxxsen/miniJVM.git}"
-MINIJVM_COMMIT="${MINIJVM_COMMIT:-8d67a8c029836ad123eef0b5f7e8ab6298b2bb57}"
-FREEJ2ME_REPOSITORY="${FREEJ2ME_REPOSITORY:-https://github.com/xxxsen/freej2meOnMinijvm.git}"
-FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-abc7aebca03b914df289e8e2f566c3a8b4173464}"
-FREEJ2ME_PLUS_REPOSITORY="${FREEJ2ME_PLUS_REPOSITORY:-https://github.com/xxxsen/freej2me-plus.git}"
-FREEJ2ME_PLUS_COMMIT="${FREEJ2ME_PLUS_COMMIT:-f416be17e069ec9658b868ce0a580992b9270097}"
+MINIJVM_REPOSITORY="${MINIJVM_REPOSITORY:-https://github.com/retrom-project/miniJVM.git}"
+MINIJVM_COMMIT="${MINIJVM_COMMIT:-db68606b95437c9c634e624c65e6a74033fdf1bf}"
+FREEJ2ME_REPOSITORY="${FREEJ2ME_REPOSITORY:-https://github.com/retrom-project/freej2meOnMinijvm.git}"
+FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-a99b9830650976f13495a28518689c54c4c33b4e}"
+FREEJ2ME_PLUS_REPOSITORY="${FREEJ2ME_PLUS_REPOSITORY:-https://github.com/retrom-project/freej2me-plus.git}"
+FREEJ2ME_PLUS_COMMIT="${FREEJ2ME_PLUS_COMMIT:-69084d55ea659249ef3c5697f9ad36285e0de3c4}"
 TINYSOUNDFONT_REPOSITORY="https://github.com/schellingb/TinySoundFont.git"
 TINYSOUNDFONT_COMMIT="853a0a171759f1ddba0de1442133a75912bbeffa"
 FFMPEG_REPOSITORY="https://github.com/FFmpeg/FFmpeg.git"
@@ -67,7 +67,7 @@ if [[ ! -f "$SOUNDFONT_CACHE" ]] || ! echo "$SOUNDFONT_SHA256  $SOUNDFONT_CACHE"
   mv "$SOUNDFONT_DOWNLOAD" "$SOUNDFONT_CACHE"
 fi
 
-BUILD_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/j2me-web-build.XXXXXX")
+BUILD_ROOT=$(mktemp -d "$PROJECT_ROOT/.cache/build.XXXXXX")
 cleanup() {
   docker run --rm \
     -v "$BUILD_ROOT:/build" \
@@ -77,8 +77,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ -n "${J2ME_PFB_PROJECT_ROOT:-}" ]]; then
+  [[ "${J2ME_PFB_CANDIDATE_BUILD:-}" == 1 && -z "${GITHUB_REF_TYPE:-}" ]] || {
+    echo "PFB dependency worktrees are allowed only in explicit local candidate builds." >&2
+    exit 1
+  }
+  node "$PROJECT_ROOT/scripts/pfb-dependency-snapshot.mjs" "$J2ME_PFB_PROJECT_ROOT" "$BUILD_ROOT"
+else
 git clone --quiet --no-checkout --shared "$CACHE_ROOT/miniJVM" "$BUILD_ROOT/miniJVM"
 git -C "$BUILD_ROOT/miniJVM" checkout --quiet --detach "$MINIJVM_COMMIT"
+fi
 git -C "$CACHE_ROOT/TinySoundFont" show "$TINYSOUNDFONT_COMMIT:tsf.h" \
   > "$BUILD_ROOT/miniJVM/desktop/glfw_gui/c/tsf.h"
 git -C "$CACHE_ROOT/TinySoundFont" show "$TINYSOUNDFONT_COMMIT:tml.h" \
@@ -87,11 +95,13 @@ git -C "$CACHE_ROOT/TinySoundFont" show "$TINYSOUNDFONT_COMMIT:tml.h" \
 mkdir -p "$BUILD_ROOT/dist/lib"
 cp "$SOUNDFONT_CACHE" "$BUILD_ROOT/dist/lib/TimGM6mb.sf2"
 
+if [[ -z "${J2ME_PFB_PROJECT_ROOT:-}" ]]; then
 git clone --quiet --no-checkout --shared "$CACHE_ROOT/freej2meOnMinijvm" "$BUILD_ROOT/freej2meOnMinijvm"
 git -C "$BUILD_ROOT/freej2meOnMinijvm" checkout --quiet --detach "$FREEJ2ME_COMMIT"
 
 git clone --quiet --no-checkout --shared "$CACHE_ROOT/freej2me-plus" "$BUILD_ROOT/freej2me-plus"
 git -C "$BUILD_ROOT/freej2me-plus" checkout --quiet --detach "$FREEJ2ME_PLUS_COMMIT"
+fi
 
 git clone --quiet --no-checkout --shared "$CACHE_ROOT/FFmpeg" "$BUILD_ROOT/FFmpeg"
 git -C "$BUILD_ROOT/FFmpeg" checkout --quiet --detach "$FFMPEG_COMMIT"
@@ -152,6 +162,8 @@ cp -R "$PLUS/META-INF/." /build/classes/freej2me-plus/META-INF/
 jar cf "$DIST/lib/freej2me-plus.jar" -C /build/classes/freej2me-plus .
 java -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmPlatformPlayerTest
 java -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmKeyStateTest
+java -Djava.awt.headless=true -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmAlphaCompositingTest
+java -Djava.awt.headless=true -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmPixelBlitterTest
 java -cp /build/classes/freej2me-plus org.recompile.freej2me.MiniJvmFrontendProfileTest
 java -cp /build/classes/freej2me-plus javax.microedition.m3g.MiniJvmGraphics3DBackendTest
 
@@ -162,7 +174,9 @@ javac -source 8 -target 8 -encoding UTF-8 \
   -bootclasspath "$DIST/lib/minijvm_rt.jar" \
   -cp "$DIST/lib/glfw_gui.jar:$DIST/lib/xgui.jar:$DIST/lib/freej2me-plus.jar" \
   -d /build/classes/freej2me @/build/classes/freej2me/sources.txt
-cp -R "$APP/src/main/resource/." /build/classes/freej2me/
+source /project/scripts/adapter-resources.sh
+copy_adapter_resources "$APP/src/main/resource" /build/classes/freej2me
+mkdir -p /build/classes/freej2me/lib
 cp "$DIST/lib/freej2me-plus.jar" /build/classes/freej2me/lib/freej2me.jar
 jar cf "$DIST/lib/freej2meonminijvm.jar" -C /build/classes/freej2me .
 
@@ -172,6 +186,8 @@ if [[ -d "$APP/src/test/java" ]]; then
   javac -source 8 -target 8 -encoding UTF-8 \
     -cp "/build/classes/freej2me:$DIST/lib/freej2me-plus.jar" \
     -d /build/classes/freej2me-tests @/build/classes/freej2me-tests/sources.txt
+  java -cp "/build/classes/freej2me:/build/classes/freej2me-tests:$DIST/lib/freej2me-plus.jar" \
+    org.mini.awt.ArgbBlitterTest
   java -cp "/build/classes/freej2me:/build/classes/freej2me-tests:$DIST/lib/freej2me-plus.jar" \
     com.ebsee.emu.audio.ExactLengthReaderTest
   java -cp "/build/classes/freej2me:/build/classes/freej2me-tests:$DIST/lib/freej2me-plus.jar" \
@@ -195,6 +211,32 @@ javac -source 8 -target 8 -encoding UTF-8 \
   -cp "$DIST/lib/freej2me-plus.jar" \
   -d /build/classes/lifecycle /project/test/java/org/j2me/test/LifecycleMidlet.java
 jar cfm /build/lifecycle.jar /project/test/java/lifecycle.mf -C /build/classes/lifecycle .
+mkdir -p /build/classes/presentation
+javac -source 8 -target 8 -encoding UTF-8 \
+  -cp "$DIST/lib/freej2me-plus.jar" \
+  -d /build/classes/presentation /project/test/java/org/j2me/test/PresentationMidlet.java
+jar cfm /build/presentation.jar /project/test/java/presentation.mf -C /build/classes/presentation .
+mkdir -p /build/classes/instant-checkpoint
+javac -source 8 -target 8 -encoding UTF-8 \
+  -cp "$DIST/lib/freej2me-plus.jar" \
+  -d /build/classes/instant-checkpoint /project/test/java/org/j2me/test/InstantCheckpointMidlet.java
+jar cfm /build/instant-checkpoint.jar /project/test/java/instant-checkpoint.mf -C /build/classes/instant-checkpoint .
+mkdir -p /build/classes/rms-persistence
+javac -source 8 -target 8 -encoding UTF-8 \
+  -cp "$DIST/lib/freej2me-plus.jar" \
+  -d /build/classes/rms-persistence /project/test/java/org/j2me/test/RmsPersistenceMidlet.java
+jar cfm /build/rms-persistence.jar /project/test/java/rms-persistence.mf -C /build/classes/rms-persistence .
+mkdir -p /build/classes/rendering-performance
+javac -source 8 -target 8 -encoding UTF-8 \
+  -bootclasspath "$DIST/lib/minijvm_rt.jar" \
+  -cp "$DIST/lib/freej2meonminijvm.jar:$DIST/lib/freej2me-plus.jar:$DIST/lib/glfw_gui.jar:$DIST/lib/xgui.jar" \
+  -d /build/classes/rendering-performance /project/test/java/org/j2me/test/RenderingPerformanceMidlet.java
+jar cfm /build/rendering-performance.jar /project/test/java/rendering-performance.mf -C /build/classes/rendering-performance .
+mkdir -p /build/classes/alpha-compositing
+javac -source 8 -target 8 -encoding UTF-8 \
+  -cp "$DIST/lib/freej2me-plus.jar:$DIST/lib/glfw_gui.jar" \
+  -d /build/classes/alpha-compositing /project/test/java/org/j2me/test/AlphaCompositingMidlet.java
+jar cfm /build/alpha-compositing.jar /project/test/java/alpha-compositing.mf -C /build/classes/alpha-compositing .
 '
 
 echo "[2/4] Compiling miniJVM to WebAssembly"
@@ -207,6 +249,9 @@ docker run --rm \
 set -euo pipefail
 mapfile -t vm_sources < <(find minijvm/c -type f -name "*.c" ! -path "*/utils/sljit/*" ! -path "*/utils/mimalloc/*" ! -path "*/cmake-*" ! -path "*/.*")
 mapfile -t gui_sources < <(find desktop/glfw_gui/c -type f -name "*.c" ! -path "*/glad/glad.c")
+
+cc -std=c11 -O2 -Wall -Wextra -Werror desktop/glfw_gui/test/pixel_buffer_test.c -lm -o /build/pixel-buffer-test
+/build/pixel-buffer-test
 
 emcc -O3 -msimd128 -o /build/wasm/runtime.js \
   -D EMSCRIPTEN_WINAPP \
@@ -275,6 +320,13 @@ cp "$BUILD_ROOT/audio-transcoder/audio-transcoder.glue.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/audio-transcoder.worker.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/runtime-loader.js" "$OUTPUT_ROOT/"
 mkdir -p "$PROJECT_ROOT/.cache/test-runtime"
-cp "$BUILD_ROOT/lifecycle.jar" "$PROJECT_ROOT/.cache/test-runtime/"
+cp "$BUILD_ROOT/lifecycle.jar" "$BUILD_ROOT/instant-checkpoint.jar" "$BUILD_ROOT/rms-persistence.jar" "$BUILD_ROOT/rendering-performance.jar" "$BUILD_ROOT/alpha-compositing.jar" "$BUILD_ROOT/presentation.jar" "$PROJECT_ROOT/.cache/test-runtime/"
+
+if [[ -f "$BUILD_ROOT/build-inputs.json" ]]; then
+  cp "$BUILD_ROOT/build-inputs.json" "$OUTPUT_ROOT/build-inputs.json"
+else
+  node -e 'process.stdout.write(JSON.stringify({schemaVersion:1,kind:"PINNED_COMMITS",inputs:process.argv.slice(1)}))' \
+    "$MINIJVM_COMMIT" "$FREEJ2ME_COMMIT" "$FREEJ2ME_PLUS_COMMIT" > "$OUTPUT_ROOT/build-inputs.json"
+fi
 
 echo "Runtime built in $OUTPUT_ROOT"

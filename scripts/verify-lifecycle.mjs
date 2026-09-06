@@ -30,8 +30,12 @@ try {
         const bytes = Uint8Array.of(80, 75, 3, 4);
         const sha256 = await sha256Hex(bytes);
         let finishFetch;
+        let startedFetch;
+        const downloading = new Promise((resolve) => { startedFetch = resolve; });
         const originalFetch = window.fetch;
-        window.fetch = () => new Promise((resolve) => { finishFetch = () => resolve(new Response(bytes)); });
+        window.fetch = () => new Promise((resolve) => {
+          finishFetch = () => resolve(new Response(bytes)); startedFetch();
+        });
         let factoryCalls = 0;
         const abort = new AbortController();
         const target = document.createElement("div"); document.body.append(target);
@@ -41,6 +45,7 @@ try {
             storage: "HOST", viewport: { width: 240, height: 320 } } },
         { frameWindow: window, signal: abort.signal, moduleFactory: () => { factoryCalls++; return {}; } });
         const mounting = runtime.mount(target).then(() => "mounted", (error) => error.name);
+        await downloading;
         abort.abort();
         const exited = await Promise.race([runtime.exit().then(() => true), new Promise((resolve) => setTimeout(() => resolve(false), 1000))]);
         finishFetch(); window.fetch = originalFetch;
@@ -116,14 +121,20 @@ try {
           { frameWindow: window, moduleFactory: async (options) => {
             options.onRuntimeInitialized();
             return { callMain: () => options.print("HOST_BRIDGE_READY"),
-              FS: { analyzePath: () => ({ exists: true }), readdir: () => ["save"],
-                stat: () => ({ mode: 1, size: 1 }), isDir: () => false, readFile: () => Uint8Array.of(1) },
+              FS: { streams: [], analyzePath: () => ({ exists: true }), readdir: () => ["store.rms", "store.1"],
+                stat: () => ({ mode: 1, size: 64 }), isDir: () => false,
+                readFile: (path) => path.endsWith(".rms")
+                  ? new TextEncoder().encode('{"rmsVersion":"1.0.0","ids":[1]}') : Uint8Array.of(1) },
               _j2me_request_pause: (value) => { state = value === failedState ? -1 : value; },
               _j2me_get_pause_state: () => state,
               PThread: { terminateAllThreads: () => { disposals++; } } };
           } });
           runtime.subscribe((event) => events.push(event));
           await runtime.mount(target);
+          const readyBy = performance.now() + 5000;
+          while (!runtime.getCheckpointAvailability().available && performance.now() < readyBy) {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
           const error = await runtime.checkpoint().then(() => null, (error) => error.message);
           await runtime.exit().catch(() => undefined);
           results.push({ error, state: runtime.getState(), disposals, children: target.childElementCount,
@@ -174,20 +185,29 @@ try {
         }
         const a = await mount(1, aDigest);
         a.module.FS.mkdirTree(`${root}/game-a`);
-        a.module.FS.writeFile(`${root}/game-a/state`, Uint8Array.of(42));
+        const metadata = new TextEncoder().encode('{"rmsVersion":"1.0.0","ids":[1]}');
+        a.module.FS.writeFile(`${root}/game-a/state.rms`, metadata);
+        a.module.FS.writeFile(`${root}/game-a/state.1`, Uint8Array.of(42));
         await a.r.exit();
         const b = await mount(2, bDigest);
         const bHasSave = b.r.getCheckpointAvailability().available;
         await b.r.exit();
-        const c = await mount(2, bDigest, encodeCheckpoint(bDigest, [{ path: "game-b/state", bytes: Uint8Array.of(99) }]));
+        const c = await mount(2, bDigest, encodeCheckpoint(bDigest, [
+          { path: "game-b/state.rms", bytes: metadata }, { path: "game-b/state.1", bytes: Uint8Array.of(99) }
+        ]));
         await c.r.exit();
         const d = await mount(1, aDigest);
+        const readyBy = performance.now() + 5000;
+        while (!d.r.getCheckpointAvailability().available && performance.now() < readyBy) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
         const files = decodeCheckpoint((await d.r.checkpoint()).bytes, aDigest).files;
         await d.r.exit();
         return { bHasSave, files: files.map((file) => [file.path, [...file.bytes]]) };
       });
       assert.equal(result.bHasSave, false);
-      assert.deepEqual(result.files, [["game-a/state", [42]]]);
+      assert.deepEqual(result.files, [["game-a/state.1", [42]],
+        ["game-a/state.rms", [...new TextEncoder().encode('{"rmsVersion":"1.0.0","ids":[1]}')]]]);
     } finally { await page.close(); }
   });
   await check("transcoder frees custom AVIO buffers on repeated decode failures", async () => {
@@ -221,10 +241,16 @@ try {
       page.on("pageerror", (error) => console.error(`Browser error: ${error.message}`));
       page.on("console", (message) => { if (message.type() === "error") console.error(message.text()); });
       try {
-        await page.setRequestInterception(true);
-        page.on("request", (request) => {
-          if (request.url() === `${origin}/lifecycle.jar`) void request.respond({ status: 200, contentType: "application/java-archive", body: jar });
-          else void request.continue();
+        // Only pause the self-authored fixture request. Pausing every request
+        // can strand pthread worker imports in Chrome during initialization.
+        const network = await page.createCDPSession();
+        await network.send("Fetch.enable", { patterns: [{ urlPattern: `${origin}/lifecycle.jar` }] });
+        network.on("Fetch.requestPaused", ({ requestId }) => {
+          void network.send("Fetch.fulfillRequest", {
+            requestId, responseCode: 200,
+            responseHeaders: [{ name: "Content-Type", value: "application/java-archive" }],
+            body: jar.toString("base64")
+          });
         });
         await page.goto(origin);
         await page.evaluate(async () => {
@@ -296,10 +322,16 @@ try {
           }, mode);
           assert.deepEqual(size, [240, 320]);
         }
+        // Finish the fixture's write loop before pausing. A VM suspended inside
+        // an open RMS write correctly stays BUSY until that write can finish.
+        await page.evaluate(() => probeRuntime.setInput("SOFT_LEFT", true));
+        await page.waitForFunction(() => probeLogs.some((line) => line.includes("LIFECYCLE_SAVE_READY")));
+        await page.evaluate(() => probeRuntime.setInput("SOFT_LEFT", false));
+        await page.waitForFunction(() => probeRuntime.getCheckpointAvailability().available);
         const saved = await page.evaluate(async () => {
           await probeRuntime.pause();
           const checkpoint = [...(await probeRuntime.checkpoint()).bytes];
-          const tick = Number(probeLogs.filter((line) => line.includes("LIFECYCLE_TICK")).at(-1).match(/LIFECYCLE_TICK (\d+)/u)[1]) & 255;
+          const tick = Number(probeLogs.find((line) => line.includes("LIFECYCLE_SAVE_READY")).match(/LIFECYCLE_SAVE_READY (\d+)/u)[1]) & 255;
           return { checkpoint, tick };
         });
         assert.ok(saved.checkpoint.length > 44);

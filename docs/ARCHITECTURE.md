@@ -66,3 +66,13 @@ miniJVM 的浏览器暂停请求由 GC 线程处理，复用 VM 协调锁、线�
 宿主通过逻辑 J2ME 动作输入，不需要伪造 DOM 键盘事件。标准映射覆盖方向、确认、左右软键、数字、`*` 和 `#`。暂停、退出、失焦或手柄断开时必须释放全部按键。
 
 LCD 逻辑尺寸与显示缩放分离。截图、指针坐标和游戏逻辑仍使用原始 viewport，显示层可选 `INTEGER_NEAREST`、`SHARP_FIT` 或 `SCALE2X`。
+
+The AWT Canvas presents only when miniGUI requests a repaint; painting must not schedule another repaint itself. Each presentation converts ARGB to native RGBA once. Integer image translations use a clipped source-over blit; other transforms retain the affine path. The public frame counter measures outer presentation and is not a game-logic tick counter.
+
+MIDP and AWT buffers use straight ARGB. Source-over must include destination alpha and normalize RGB for the resulting alpha; drawing onto an opaque background must leave opaque output. Otherwise the presentation buffer blends an already-composited frame again, darkening panels and retaining stale scrolling text. Game-requested translucent effects remain intact.
+
+The miniJVM frontend installs an optional bulk pixel blitter for MIDP source-over. Clipping and render-mode selection remain in FreeJ2ME Plus; the native operation validates every buffer extent before access, including negative strides. Unsupported operations and aliased buffers keep their Java path. AWT integer blits and ARGB/RGBA conversion use the same bulk primitives. This reduces interpreted per-pixel work without changing game clocks, frame limits, alpha semantics or the checkpoint ABI.
+
+Browser repaint requests coalesce into one pending presentation, consumed under the same lock used to request it. Desktop/mobile retain their platform settling frames. AWT painting never schedules itself. This removes duplicate conversions and texture uploads while retaining game-requested timing.
+
+`lcd-presenter.js` copies the source only when the core presentation counter advances. It retains one logical-size image for screenshots and paused scaling/view changes; normal modes make no explicit getImageData call, and Scale2x runs once per changed frame or display-mode invalidation. Input and audio polling continue on every browser refresh independently of dirty frames. A viewport change invalidates both the retained source and output. The core frame counter still measures submissions, not distinct pixels, game ticks or the monitor refresh rate.
