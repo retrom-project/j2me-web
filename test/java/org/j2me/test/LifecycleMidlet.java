@@ -9,6 +9,7 @@ import javax.microedition.rms.RecordStore;
 /** Self-authored browser regression fixture, compiled locally, never shipped. */
 public final class LifecycleMidlet extends MIDlet implements Runnable {
     private volatile boolean running;
+    private volatile boolean saveRequested;
     private int ticks;
     private final Canvas canvas = new Canvas() {
         protected void paint(Graphics graphics) {
@@ -19,6 +20,7 @@ public final class LifecycleMidlet extends MIDlet implements Runnable {
         }
         public void keyPressed(int key) {
             System.out.println("LIFECYCLE_KEY " + key);
+            if (key == -6) saveRequested = true;
         }
     };
 
@@ -44,6 +46,11 @@ public final class LifecycleMidlet extends MIDlet implements Runnable {
                 store.setRecord(1, new byte[] { (byte) ticks }, 0, 1);
                 System.out.println("LIFECYCLE_TICK " + ticks);
                 canvas.repaint();
+                if (saveRequested) {
+                    store.closeRecordStore();
+                    System.out.println("LIFECYCLE_SAVE_READY " + ticks);
+                    return;
+                }
                 Thread.sleep(100L);
             }
             store.closeRecordStore();

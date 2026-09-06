@@ -16,6 +16,8 @@ npm run build:runtime
 
 构建还会将仓库自有的 `test/java/org/j2me/test/LifecycleMidlet.java` 编译到被忽略的 `.cache/test-runtime/lifecycle.jar`，不加入运行时或 Release。安装 Chrome 后运行 `npm run test:lifecycle`，可独立于商业游戏验证真实 JVM 暂停/恢复、跨 frame 输入、截图尺寸、RMS checkpoint、IDBFS 游戏隔离、加载取消、运行期故障和转码器内存稳定性。
 
+生命周期夹具在截图检查后通过左软键结束写入，并发出 `LIFECYCLE_SAVE_READY`。测试等待 RMS 稳定后才暂停、导出和核对恢复值，避免把 JVM 暂停在写入中途后等待一个无法完成的写入；前面的暂停/恢复断言仍覆盖持续运行的 Java 线程。
+
 `npm run test:rms-persistence` 使用自编的中文名称 MIDlet 验证删除后覆盖保存、同一存储多次打开的数据共享、独立存储关闭语义、Java 数据流及部分分配的多维数组，并从公共 API 导出 RMS。数组用例检查 `multianewarray` 未分配的维度保持 null，防止 VM 越界读取维度参数并让游戏保存错误数据。结果写入 `.cache/evidence/rms-persistence.json`。`J2ME_RMS_RUNTIME_PATH` 可指定本地开发字节的服务路径；此时报告仅代表该开发字节，不能替代固定提交的构建验证。单元测试还覆盖多文件写入中间态的拒绝及零字节记录保留。
 
 ## 即时 checkpoint 准入

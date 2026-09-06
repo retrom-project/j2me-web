@@ -322,14 +322,16 @@ try {
           }, mode);
           assert.deepEqual(size, [240, 320]);
         }
+        // Finish the fixture's write loop before pausing. A VM suspended inside
+        // an open RMS write correctly stays BUSY until that write can finish.
+        await page.evaluate(() => probeRuntime.setInput("SOFT_LEFT", true));
+        await page.waitForFunction(() => probeLogs.some((line) => line.includes("LIFECYCLE_SAVE_READY")));
+        await page.evaluate(() => probeRuntime.setInput("SOFT_LEFT", false));
+        await page.waitForFunction(() => probeRuntime.getCheckpointAvailability().available);
         const saved = await page.evaluate(async () => {
           await probeRuntime.pause();
-          const readyBy = performance.now() + 5000;
-          while (!probeRuntime.getCheckpointAvailability().available && performance.now() < readyBy) {
-            await new Promise((resolve) => setTimeout(resolve, 50));
-          }
           const checkpoint = [...(await probeRuntime.checkpoint()).bytes];
-          const tick = Number(probeLogs.filter((line) => line.includes("LIFECYCLE_TICK")).at(-1).match(/LIFECYCLE_TICK (\d+)/u)[1]) & 255;
+          const tick = Number(probeLogs.find((line) => line.includes("LIFECYCLE_SAVE_READY")).match(/LIFECYCLE_SAVE_READY (\d+)/u)[1]) & 255;
           return { checkpoint, tick };
         });
         assert.ok(saved.checkpoint.length > 44);
