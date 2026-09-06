@@ -124,9 +124,9 @@ try {
     schemaVersion: 2,
     sourceCommits: {
       freej2meOnMinijvm: "abc7aebca03b914df289e8e2f566c3a8b4173464",
-      freej2mePlus: "f416be17e069ec9658b868ce0a580992b9270097",
+      freej2mePlus: "c703304c57812be8757412696c85edce8688b3bc",
       ffmpeg: "db69d06eeeab4f46da15030a80d539efb4503ca8",
-      miniJVM: "8d67a8c029836ad123eef0b5f7e8ab6298b2bb57"
+      miniJVM: "ef99e1c40c40e57380ba9613ac5a9b7f1975591a"
     },
     tag
   };

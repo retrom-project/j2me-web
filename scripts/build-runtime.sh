@@ -5,11 +5,11 @@ PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CACHE_ROOT="$PROJECT_ROOT/.cache/upstream"
 OUTPUT_ROOT="$PROJECT_ROOT/public/runtime"
 MINIJVM_REPOSITORY="${MINIJVM_REPOSITORY:-https://github.com/retrom-project/miniJVM.git}"
-MINIJVM_COMMIT="${MINIJVM_COMMIT:-8d67a8c029836ad123eef0b5f7e8ab6298b2bb57}"
+MINIJVM_COMMIT="${MINIJVM_COMMIT:-ef99e1c40c40e57380ba9613ac5a9b7f1975591a}"
 FREEJ2ME_REPOSITORY="${FREEJ2ME_REPOSITORY:-https://github.com/retrom-project/freej2meOnMinijvm.git}"
 FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-abc7aebca03b914df289e8e2f566c3a8b4173464}"
 FREEJ2ME_PLUS_REPOSITORY="${FREEJ2ME_PLUS_REPOSITORY:-https://github.com/retrom-project/freej2me-plus.git}"
-FREEJ2ME_PLUS_COMMIT="${FREEJ2ME_PLUS_COMMIT:-f416be17e069ec9658b868ce0a580992b9270097}"
+FREEJ2ME_PLUS_COMMIT="${FREEJ2ME_PLUS_COMMIT:-c703304c57812be8757412696c85edce8688b3bc}"
 TINYSOUNDFONT_REPOSITORY="https://github.com/schellingb/TinySoundFont.git"
 TINYSOUNDFONT_COMMIT="853a0a171759f1ddba0de1442133a75912bbeffa"
 FFMPEG_REPOSITORY="https://github.com/FFmpeg/FFmpeg.git"
@@ -77,8 +77,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ -n "${J2ME_PFB_PROJECT_ROOT:-}" ]]; then
+  [[ "${J2ME_PFB_CANDIDATE_BUILD:-}" == 1 && -z "${GITHUB_REF_TYPE:-}" ]] || {
+    echo "PFB dependency worktrees are allowed only in explicit local candidate builds." >&2
+    exit 1
+  }
+  node "$PROJECT_ROOT/scripts/pfb-dependency-snapshot.mjs" "$J2ME_PFB_PROJECT_ROOT" "$BUILD_ROOT"
+else
 git clone --quiet --no-checkout --shared "$CACHE_ROOT/miniJVM" "$BUILD_ROOT/miniJVM"
 git -C "$BUILD_ROOT/miniJVM" checkout --quiet --detach "$MINIJVM_COMMIT"
+fi
 git -C "$CACHE_ROOT/TinySoundFont" show "$TINYSOUNDFONT_COMMIT:tsf.h" \
   > "$BUILD_ROOT/miniJVM/desktop/glfw_gui/c/tsf.h"
 git -C "$CACHE_ROOT/TinySoundFont" show "$TINYSOUNDFONT_COMMIT:tml.h" \
@@ -87,11 +95,13 @@ git -C "$CACHE_ROOT/TinySoundFont" show "$TINYSOUNDFONT_COMMIT:tml.h" \
 mkdir -p "$BUILD_ROOT/dist/lib"
 cp "$SOUNDFONT_CACHE" "$BUILD_ROOT/dist/lib/TimGM6mb.sf2"
 
+if [[ -z "${J2ME_PFB_PROJECT_ROOT:-}" ]]; then
 git clone --quiet --no-checkout --shared "$CACHE_ROOT/freej2meOnMinijvm" "$BUILD_ROOT/freej2meOnMinijvm"
 git -C "$BUILD_ROOT/freej2meOnMinijvm" checkout --quiet --detach "$FREEJ2ME_COMMIT"
 
 git clone --quiet --no-checkout --shared "$CACHE_ROOT/freej2me-plus" "$BUILD_ROOT/freej2me-plus"
 git -C "$BUILD_ROOT/freej2me-plus" checkout --quiet --detach "$FREEJ2ME_PLUS_COMMIT"
+fi
 
 git clone --quiet --no-checkout --shared "$CACHE_ROOT/FFmpeg" "$BUILD_ROOT/FFmpeg"
 git -C "$BUILD_ROOT/FFmpeg" checkout --quiet --detach "$FFMPEG_COMMIT"
@@ -202,6 +212,11 @@ javac -source 8 -target 8 -encoding UTF-8 \
   -cp "$DIST/lib/freej2me-plus.jar" \
   -d /build/classes/instant-checkpoint /project/test/java/org/j2me/test/InstantCheckpointMidlet.java
 jar cfm /build/instant-checkpoint.jar /project/test/java/instant-checkpoint.mf -C /build/classes/instant-checkpoint .
+mkdir -p /build/classes/rms-persistence
+javac -source 8 -target 8 -encoding UTF-8 \
+  -cp "$DIST/lib/freej2me-plus.jar" \
+  -d /build/classes/rms-persistence /project/test/java/org/j2me/test/RmsPersistenceMidlet.java
+jar cfm /build/rms-persistence.jar /project/test/java/rms-persistence.mf -C /build/classes/rms-persistence .
 '
 
 echo "[2/4] Compiling miniJVM to WebAssembly"
@@ -282,6 +297,13 @@ cp "$BUILD_ROOT/audio-transcoder/audio-transcoder.glue.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/audio-transcoder.worker.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/runtime-loader.js" "$OUTPUT_ROOT/"
 mkdir -p "$PROJECT_ROOT/.cache/test-runtime"
-cp "$BUILD_ROOT/lifecycle.jar" "$BUILD_ROOT/instant-checkpoint.jar" "$PROJECT_ROOT/.cache/test-runtime/"
+cp "$BUILD_ROOT/lifecycle.jar" "$BUILD_ROOT/instant-checkpoint.jar" "$BUILD_ROOT/rms-persistence.jar" "$PROJECT_ROOT/.cache/test-runtime/"
+
+if [[ -f "$BUILD_ROOT/build-inputs.json" ]]; then
+  cp "$BUILD_ROOT/build-inputs.json" "$OUTPUT_ROOT/build-inputs.json"
+else
+  node -e 'process.stdout.write(JSON.stringify({schemaVersion:1,kind:"PINNED_COMMITS",inputs:process.argv.slice(1)}))' \
+    "$MINIJVM_COMMIT" "$FREEJ2ME_COMMIT" "$FREEJ2ME_PLUS_COMMIT" > "$OUTPUT_ROOT/build-inputs.json"
+fi
 
 echo "Runtime built in $OUTPUT_ROOT"

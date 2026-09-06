@@ -1,4 +1,8 @@
+import { loadModuleFactory } from "./runtime-module-loader.js";
+import { loadCachedJar } from "./jar-cache.js";
 import { CHECKPOINT_FORMAT, decodeCheckpoint, encodeCheckpoint, measureCheckpoint } from "./checkpoint-codec.js";
+import { assertCompleteRmsTree } from "./rms-storage.js";
+import { RmsSaveTracker } from "./rms-save-tracker.js";
 import { installAudioActivation, resumeRuntimeAudio, suspendRuntimeAudio, closeRuntimeAudio } from "./audio-policy.js";
 import { createAudioTranscoder } from "./media-transcoder.js";
 import { GameRuntimeController } from "./runtime-controller.js";
@@ -45,6 +49,7 @@ const capabilities = Object.freeze({
 });
 
 export const runtimeAdapter = Object.freeze({
+  automaticViewport: true,
   adapterAbi: J2ME_ADAPTER_ABI,
   adapterId: J2ME_ADAPTER_ID,
   adapterKind: J2ME_ADAPTER_KIND,
@@ -92,7 +97,7 @@ export function validateRuntimeConfig(config) {
   if (!config || typeof config !== "object" || !boundedText(config.sessionId, 200) ||
     !validDigest(config.contentDigest) || adapter?.adapterKind !== J2ME_ADAPTER_KIND ||
     adapter.adapterId !== J2ME_ADAPTER_ID || !validUrl(adapter.runtimeBaseUrl) ||
-    !validStorage(adapter.storage) || !validViewport(adapter.viewport) ||
+    !validStorage(adapter.storage) || adapter.viewport !== undefined && !validViewport(adapter.viewport) ||
     !validCompatibilityProfileOverride(adapter.compatibilityProfile) ||
     adapter.scalingMode !== undefined && !validScalingMode(adapter.scalingMode) ||
     source?.kind !== J2ME_CONTENT_SOURCE || !boundedText(source.name, 500) ||
@@ -120,16 +125,19 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
   const restored = options.restorePayload == null
     ? null
     : decodeCheckpoint(options.restorePayload, config.contentDigest);
+  const saveTracker = new RmsSaveTracker(config.contentDigest, restored?.files);
   const signal = options.signal;
   signal.throwIfAborted();
-  const jarBytes = await fetchJar(config.source, frameWindow, reportProgress, signal);
+  const jarBytes = await loadCachedJar(config.source, frameWindow, signal,
+    () => fetchJar(config.source, frameWindow, reportProgress, signal));
+  reportProgress({ phase: "PROJECT_CONTENT", loadedBytes: jarBytes.length, totalBytes: config.source.sizeBytes });
   signal.throwIfAborted();
   const profile = resolveCompatibilityProfile(config.source, {
     ...config.adapter.compatibilityProfile,
-    viewport: config.adapter.viewport
+    ...(config.adapter.viewport ? { viewport: config.adapter.viewport } : {})
   });
   const initialScalingMode = config.adapter.scalingMode ?? "SHARP_FIT";
-  const surface = createSurface(document, frameWindow, config.adapter.viewport, initialScalingMode);
+  const surface = createSurface(document, frameWindow, profile.viewport, initialScalingMode);
   target.replaceChildren(surface.root);
   const runtimeBaseUrl = new URL(normalizedBase(config.adapter.runtimeBaseUrl), document.baseURI);
   const previousMediaTranscode = frameWindow.__j2meMediaTranscode;
@@ -150,7 +158,7 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
   let mirrorFrame = 0;
   let mirrorCount = 0;
   let viewMode = "LCD";
-  let viewport = { ...config.adapter.viewport };
+  let viewport = { ...profile.viewport };
   let scalingMode = initialScalingMode;
   let exitReported = false;
   let coreFailed = false;
@@ -310,6 +318,19 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
     await syncFileSystem(module.FS, false);
   }
 
+  function checkpointAvailability() {
+    if (exited || !module?.FS) return { available: false, blocker: "NOT_READY" };
+    try {
+      measureCheckpoint(readRmsFiles(module.FS, false));
+      if (module.FS.streams.some((stream) => stream?.path?.startsWith(`${persistenceRoot}/`) &&
+        (stream.flags & 3) !== 0)) return saveTracker.invalidate();
+      return saveTracker.observe(readRmsFiles(module.FS), frameWindow.performance.now());
+    } catch (error) {
+      saveTracker.invalidate();
+      return { available: false, blocker: /^J2ME_CHECKPOINT_/u.test(error?.message) ? "UNSUPPORTED" : "BUSY" };
+    }
+  }
+
   async function cleanup() {
     if (exited) return;
     exited = true;
@@ -343,11 +364,16 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
       const wasPaused = paused;
       if (!wasPaused) await pauseCore();
       try {
+        if (!checkpointAvailability().available) throw new Error("J2ME_CHECKPOINT_UNAVAILABLE");
         await flushStorage();
         const files = readRmsFiles(module.FS);
-        if (!files.length) throw new Error("J2ME_CHECKPOINT_UNAVAILABLE");
+        assertCompleteRmsTree(files);
         return { bytes: encodeCheckpoint(config.contentDigest, files), format: CHECKPOINT_FORMAT };
       } finally { if (!wasPaused && !exited && !signal.aborted) await resumeCore(); }
+    },
+    acknowledgeCheckpoint: async (payload) => {
+      if (payload?.format !== CHECKPOINT_FORMAT) throw new Error("J2ME_CHECKPOINT_INVALID");
+      saveTracker.acknowledge(decodeCheckpoint(payload.bytes, config.contentDigest).files);
     },
     exit: async () => {
       if (exited) return;
@@ -360,17 +386,7 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
       } finally { await cleanup(); }
     },
     getCanvas: () => surface.display,
-    getCheckpointAvailability: () => {
-      if (exited || !module?.FS) return { available: false, blocker: "NOT_READY" };
-      try {
-        const files = readRmsFiles(module.FS, false);
-        if (!files.length) return { available: false, blocker: "SAVE_DISABLED" };
-        measureCheckpoint(files);
-        return { available: true, blocker: null };
-      } catch (error) {
-        return { available: false, blocker: /^J2ME_CHECKPOINT_/u.test(error?.message) ? "UNSUPPORTED" : "BUSY" };
-      }
-    },
+    getCheckpointAvailability: checkpointAvailability,
     getFrameCount: () => module?._j2me_get_frame_count?.() ?? 0,
     getScalingMode: () => scalingMode,
     getValidationProbe: (kind) => {
@@ -467,22 +483,6 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
   }
 }
 
-async function loadModuleFactory(runtimeBaseUrl, frameWindow, signal) {
-  const key = `__j2meLoader_${globalThis.crypto.randomUUID().replaceAll("-", "")}`;
-  const script = frameWindow.document.createElement("script");
-  const url = new URL("runtime-loader.js", runtimeBaseUrl);
-  url.searchParams.set("bridge", key);
-  script.type = "module";
-  script.src = url.href;
-  const pending = new Promise((resolve, reject) => {
-    frameWindow[key] = { resolve, reject };
-    script.onerror = () => reject(new Error("J2ME_RUNTIME_ASSET_INVALID"));
-  });
-  try {
-    frameWindow.document.head.append(script);
-    return await abortable(pending, signal);
-  } finally { delete frameWindow[key]; script.remove(); }
-}
 
 async function fetchJar(source, frameWindow, reportProgress, signal) {
   reportProgress({ phase: "PROJECT_CONTENT", loadedBytes: 0, totalBytes: source.sizeBytes });

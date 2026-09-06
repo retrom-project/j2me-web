@@ -40,6 +40,13 @@ await runtime.mount(container);
 
 API 可以在父页面导入；`container` 必须属于 `frameWindow.document`。运行时通过旁置的 `runtime-loader.js` 在目标 frame 内加载核心，不使用 `eval`、内联模块或父页面的 `window.Module`。使用 CSP 时，应允许目标 frame 加载运行时目录中的外部模块、Wasm 和 worker。
 
+开发版通过 `runtimeAdapter.automaticViewport` 声明可省略 `adapter.viewport`；省略时按 JAR SHA-256
+选择核心兼容配置，未知游戏使用 240×320。显式 viewport 继续覆盖兼容配置。loader 通过外部普通脚本元素的
+data 属性标识实例，再在目标 frame 内动态导入核心；不改变不可变资产 URL，缓存命中和连续启动均执行独立回调。
+
+完整 JAR 经大小和 SHA-256 验证后进入 Cache Storage，按内容摘要跨实例复用；缓存命中仍校验内容。
+HTTP 和本地 Blob 来源均受支持，存储不可用时回退下载。此缓存只保存游戏资源，不参与 `HOST` 模式的存档恢复。
+
 ## 事件
 
 宿主可在 `mount()` 之前订阅：
@@ -53,7 +60,7 @@ API 可以在父页面导入；`container` 必须属于 `frameWindow.document`�
 
 ## 公共操作
 
-运行时提供 `mount`、`pause`、`resume`、`checkpoint`、`screenshot`、`exit`、`setInput`、`getScalingMode`、`setScalingMode`、Canvas/帧计数/状态查询和事件订阅。`getValidationProbe()` 为调试与自动化提供输入、GC、媒体与 3D 观测数据，不应作为游戏业务状态。
+运行时提供 `mount`、`pause`、`resume`、`checkpoint`、`acknowledgeCheckpoint`、`screenshot`、`exit`、`setInput`、`getScalingMode`、`setScalingMode`、Canvas/帧计数/状态查询和事件订阅。`getValidationProbe()` 为调试与自动化提供输入、GC、媒体与 3D 观测数据，不应作为游戏业务状态。
 
 `setInput(action, pressed)` 只接受 `runtime-manifest.json` 声明的逻辑动作。宿主的虚拟键、键盘或手柄层应统一转成这些动作。
 
@@ -70,8 +77,13 @@ API 可以在父页面导入；`container` 必须属于 `frameWindow.document`�
 
 Checkpoint 的边界和限制见 [CHECKPOINTS.md](CHECKPOINTS.md)。
 
+Retrom Provider 必须将 `j2me-rms-bundle-v1` 明确声明为 `GAME_SAVE`：游戏内保存产生变化后，宿主按可用性 revision 自动同步，上传成功后确认对应 checkpoint；
+新 Launch 在启动 JVM 前导入完整 RMS 包，随后通过游戏菜单读档。不得宣称恢复任意执行瞬间。
+
 ## 发布资产
 
 `vX.Y.Z` Release 提供 `j2me-web-vX.Y.Z-runtime.zip`、对应 SHA-256 文件和 `j2me-runtime-release.json`。解压目录中的 `j2me-runtime.js` 是唯一公共 ESM 入口；Wasm、pthread worker、预加载数据和音频转码器作为运行时旁置资产保留。metadata schema v2 记录压缩包与解压后运行资产的大小和 SHA-256。
 
 宿主必须提供 COOP/COEP 以启用 cross-origin isolation，并保证运行时资产可以被 worker 和 Wasm 从同一隔离上下文加载。
+
+原生数据同步覆盖完整 RMS，不要求宿主或运行时逐游戏识别进度。宿主可将新游戏会话绑定到一个可更新数据槽，恢复会话继续更新所选槽；创建时间保持不变。手动即时存档应禁用，失败重试同步使用独立入口。
