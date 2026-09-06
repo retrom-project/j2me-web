@@ -38,10 +38,14 @@ try {
   await page.waitForFunction(() => rmsLogs.some(line => line === "RENDER_PERF_DONE" || line.startsWith("RENDER_PERF_FAIL")), { timeout: 120000 });
   evidence.logs = await page.evaluate(() => rmsLogs.filter(line => line.startsWith("RENDER_PERF")));
   assert.ok(evidence.logs.includes("RENDER_PERF_DONE"), evidence.logs.join("\n"));
-  evidence.samples = evidence.logs.filter(line => /^RENDER_PERF (blit|game) /.test(line)).map(line => {
+  evidence.samples = evidence.logs.filter(line => /^RENDER_PERF (blit|rgba|alpha|game) /.test(line)).map(line => {
     const [, name, elapsed, frames] = line.split(" ");
     return {name, elapsedMs: Number(elapsed), frames: Number(frames), msPerFrame: Number(elapsed) / Number(frames)};
   });
+  assert.deepEqual(evidence.samples.map(sample => sample.name), ["blit", "rgba", "alpha", "game"]);
+  const bulkBudgets = { blit: 2, rgba: 2, alpha: 8 };
+  for (const sample of evidence.samples) if (bulkBudgets[sample.name])
+    assert.ok(sample.msPerFrame <= bulkBudgets[sample.name], `${sample.name}: ${sample.msPerFrame} ms exceeds bulk pixel budget ${bulkBudgets[sample.name]}`);
   for (const sample of evidence.samples) assert.ok(sample.msPerFrame <= Number(process.env.J2ME_RENDER_MAX_FRAME_MS || 80), `${sample.name}: ${sample.msPerFrame} ms exceeds frame budget`);
   const cdp = await page.createCDPSession();
   await cdp.send("Performance.enable");

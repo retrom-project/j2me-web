@@ -35,6 +35,20 @@ public final class RenderingPerformanceMidlet extends MIDlet implements Runnable
             System.out.println("RENDER_PERF blit " + (System.currentTimeMillis() - start) + " 20");
             int[] actual = destination.getRGB(0, 0, width, height, null, 0, width);
             for (int i = 0; i < pixels.length; i++) if (actual[i] != pixels[i]) throw new RuntimeException("blit pixels " + i);
+            start = System.currentTimeMillis();
+            for (int i = 0; i < 20; i++) source.getImage();
+            System.out.println("RENDER_PERF rgba " + (System.currentTimeMillis() - start) + " 20");
+            int[] translucent = new int[64 * 64];
+            for (int i = 0; i < translucent.length; i++) translucent[i] = ((i % 3) * 127 << 24) | 0x90c050;
+            Image alphaSprite = Image.createRGBImage(translucent, 64, 64, true);
+            Image offscreen = Image.createImage(width, height);
+            Graphics composite = offscreen.getGraphics();
+            start = System.currentTimeMillis();
+            for (int frame = 0; frame < 20; frame++) {
+                composite.setColor(0x102030); composite.fillRect(0, 0, width, height);
+                for (int i = 0; i < 32; i++) composite.drawImage(alphaSprite, (i * 29) % 176, (i * 47) % 256, Graphics.TOP | Graphics.LEFT);
+            }
+            System.out.println("RENDER_PERF alpha " + (System.currentTimeMillis() - start) + " 20");
             Image sprite = Image.createImage(16, 16);
             Graphics spriteGraphics = sprite.getGraphics();
             spriteGraphics.setColor(0xf08b35); spriteGraphics.fillRect(0, 0, 16, 16);

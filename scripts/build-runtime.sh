@@ -5,11 +5,11 @@ PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CACHE_ROOT="$PROJECT_ROOT/.cache/upstream"
 OUTPUT_ROOT="$PROJECT_ROOT/public/runtime"
 MINIJVM_REPOSITORY="${MINIJVM_REPOSITORY:-https://github.com/retrom-project/miniJVM.git}"
-MINIJVM_COMMIT="${MINIJVM_COMMIT:-ef99e1c40c40e57380ba9613ac5a9b7f1975591a}"
+MINIJVM_COMMIT="${MINIJVM_COMMIT:-91666ab64aa612e754f9b7366ab4efb1c8a6e275}"
 FREEJ2ME_REPOSITORY="${FREEJ2ME_REPOSITORY:-https://github.com/retrom-project/freej2meOnMinijvm.git}"
-FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-1621666cc81aaa90187ada0f2496e53ffe913ed4}"
+FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-c9a13512b508700ce31b157416410aeac9070057}"
 FREEJ2ME_PLUS_REPOSITORY="${FREEJ2ME_PLUS_REPOSITORY:-https://github.com/retrom-project/freej2me-plus.git}"
-FREEJ2ME_PLUS_COMMIT="${FREEJ2ME_PLUS_COMMIT:-b9f7bcad0276a7c89fe94834eb6feec266c1302b}"
+FREEJ2ME_PLUS_COMMIT="${FREEJ2ME_PLUS_COMMIT:-fa2f16abdf03860bf55c62ed29c64e6cc3b020a3}"
 TINYSOUNDFONT_REPOSITORY="https://github.com/schellingb/TinySoundFont.git"
 TINYSOUNDFONT_COMMIT="853a0a171759f1ddba0de1442133a75912bbeffa"
 FFMPEG_REPOSITORY="https://github.com/FFmpeg/FFmpeg.git"
@@ -163,6 +163,7 @@ jar cf "$DIST/lib/freej2me-plus.jar" -C /build/classes/freej2me-plus .
 java -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmPlatformPlayerTest
 java -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmKeyStateTest
 java -Djava.awt.headless=true -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmAlphaCompositingTest
+java -Djava.awt.headless=true -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmPixelBlitterTest
 java -cp /build/classes/freej2me-plus org.recompile.freej2me.MiniJvmFrontendProfileTest
 java -cp /build/classes/freej2me-plus javax.microedition.m3g.MiniJvmGraphics3DBackendTest
 
@@ -222,12 +223,13 @@ javac -source 8 -target 8 -encoding UTF-8 \
 jar cfm /build/rms-persistence.jar /project/test/java/rms-persistence.mf -C /build/classes/rms-persistence .
 mkdir -p /build/classes/rendering-performance
 javac -source 8 -target 8 -encoding UTF-8 \
-  -cp "$DIST/lib/freej2me-plus.jar" \
+  -bootclasspath "$DIST/lib/minijvm_rt.jar" \
+  -cp "$DIST/lib/freej2meonminijvm.jar:$DIST/lib/freej2me-plus.jar:$DIST/lib/glfw_gui.jar:$DIST/lib/xgui.jar" \
   -d /build/classes/rendering-performance /project/test/java/org/j2me/test/RenderingPerformanceMidlet.java
 jar cfm /build/rendering-performance.jar /project/test/java/rendering-performance.mf -C /build/classes/rendering-performance .
 mkdir -p /build/classes/alpha-compositing
 javac -source 8 -target 8 -encoding UTF-8 \
-  -cp "$DIST/lib/freej2me-plus.jar" \
+  -cp "$DIST/lib/freej2me-plus.jar:$DIST/lib/glfw_gui.jar" \
   -d /build/classes/alpha-compositing /project/test/java/org/j2me/test/AlphaCompositingMidlet.java
 jar cfm /build/alpha-compositing.jar /project/test/java/alpha-compositing.mf -C /build/classes/alpha-compositing .
 '
@@ -242,6 +244,9 @@ docker run --rm \
 set -euo pipefail
 mapfile -t vm_sources < <(find minijvm/c -type f -name "*.c" ! -path "*/utils/sljit/*" ! -path "*/utils/mimalloc/*" ! -path "*/cmake-*" ! -path "*/.*")
 mapfile -t gui_sources < <(find desktop/glfw_gui/c -type f -name "*.c" ! -path "*/glad/glad.c")
+
+cc -std=c11 -O2 -Wall -Wextra -Werror desktop/glfw_gui/test/pixel_buffer_test.c -lm -o /build/pixel-buffer-test
+/build/pixel-buffer-test
 
 emcc -O3 -msimd128 -o /build/wasm/runtime.js \
   -D EMSCRIPTEN_WINAPP \

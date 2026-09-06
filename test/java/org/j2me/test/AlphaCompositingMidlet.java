@@ -17,6 +17,25 @@ public final class AlphaCompositingMidlet extends MIDlet implements Runnable {
     protected void destroyApp(boolean unconditional) {}
     public void run() {
         try {
+            int[] source = {0xffff0000, 0xff00ff00, 0x800000ff, 0};
+            int[] destination = new int[4];
+            if (!org.mini.gl.GLMath.img_argb_blit(source, 2, -2, destination, 0, 2, 2, 2, true))
+                throw new RuntimeException("native blit unavailable");
+            equal(0x800000ff, destination[0], "native negative stride");
+            equal(0, destination[1], "native transparent");
+            equal(source[0], destination[2], "native row");
+            byte[] bytes = new byte[16];
+            if (!org.mini.gl.GLMath.img_argb_bytes(source, bytes, 4, true)) throw new RuntimeException("native conversion unavailable");
+            equal(255, bytes[0] & 255, "native red byte");
+            equal(128, bytes[11] & 255, "native alpha byte");
+            if (!org.mini.gl.GLMath.img_argb_bytes(destination, bytes, 4, false)) throw new RuntimeException("native reverse unavailable");
+            for (int i = 0; i < 4; i++) equal(source[i], destination[i], "native round trip");
+            if (org.mini.gl.GLMath.img_argb_blit(source, Integer.MAX_VALUE, 2, destination, 0, 2, 2, 2, true))
+                throw new RuntimeException("native accepted invalid bounds");
+            for (int i = 0; i < 4; i++) equal(source[i], destination[i], "invalid native call changed pixels");
+            System.out.println("ALPHA_PASS native");
+        } catch (Throwable e) { System.out.println("ALPHA_FAIL native " + e); }
+        try {
             Image image = Image.createImage(1, 1);
             Graphics g = image.getGraphics(); g.setColor(0x0000ff); g.fillRect(0, 0, 1, 1);
             g.drawRGB(new int[]{0x80ff0000}, 0, 1, 0, 0, 1, 1, true);

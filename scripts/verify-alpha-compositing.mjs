@@ -38,7 +38,7 @@ try {
   await page.waitForFunction(() => rmsLogs.includes("ALPHA_DONE"), {timeout: 30000});
   evidence.logs = await page.evaluate(() => rmsLogs.filter(line => line.startsWith("ALPHA_")));
   assert.deepEqual(evidence.logs.filter(line => line.startsWith("ALPHA_FAIL")), []);
-  for (const name of ["midp", "awt1", "awt2", "scrolling"]) assert.ok(evidence.logs.includes(`ALPHA_PASS ${name}`), name);
+  for (const name of ["native", "midp", "awt1", "awt2", "scrolling"]) assert.ok(evidence.logs.includes(`ALPHA_PASS ${name}`), name);
   evidence.status = "PASSED";
 } catch (error) {
   evidence.status = "FAILED"; evidence.error = error.message; process.exitCode = 1;

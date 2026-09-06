@@ -7,3 +7,5 @@ The core build compiles them into ignored `.cache/test-runtime/` JARs. These JAR
 `RenderingPerformanceMidlet.java` is also project-authored and dedicated to CC0-1.0. It measures full-screen AWT blits and complete MIDP draw/flush cycles in the actual VM, and checks copied pixels. It contains no game content.
 
 `AlphaCompositingMidlet.java` is project-authored (CC0-1.0). It checks MIDP and AWT source-over, straight ARGB color retention, and twelve successive dialog-row frames without stale pixels.
+
+The rendering fixture also measures RGBA conversion and translucent sprite compositing. The alpha fixture checks the native pixel binding and invalid-range rejection. These additions contain only generated pixel patterns.
