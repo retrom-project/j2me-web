@@ -5,7 +5,7 @@ PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CACHE_ROOT="$PROJECT_ROOT/.cache/upstream"
 OUTPUT_ROOT="$PROJECT_ROOT/public/runtime"
 MINIJVM_REPOSITORY="${MINIJVM_REPOSITORY:-https://github.com/retrom-project/miniJVM.git}"
-MINIJVM_COMMIT="${MINIJVM_COMMIT:-91666ab64aa612e754f9b7366ab4efb1c8a6e275}"
+MINIJVM_COMMIT="${MINIJVM_COMMIT:-cf0f91fcc42b580f35c8cde8d2baef11bd44013b}"
 FREEJ2ME_REPOSITORY="${FREEJ2ME_REPOSITORY:-https://github.com/retrom-project/freej2meOnMinijvm.git}"
 FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-c9a13512b508700ce31b157416410aeac9070057}"
 FREEJ2ME_PLUS_REPOSITORY="${FREEJ2ME_PLUS_REPOSITORY:-https://github.com/retrom-project/freej2me-plus.git}"
@@ -211,6 +211,11 @@ javac -source 8 -target 8 -encoding UTF-8 \
   -cp "$DIST/lib/freej2me-plus.jar" \
   -d /build/classes/lifecycle /project/test/java/org/j2me/test/LifecycleMidlet.java
 jar cfm /build/lifecycle.jar /project/test/java/lifecycle.mf -C /build/classes/lifecycle .
+mkdir -p /build/classes/presentation
+javac -source 8 -target 8 -encoding UTF-8 \
+  -cp "$DIST/lib/freej2me-plus.jar" \
+  -d /build/classes/presentation /project/test/java/org/j2me/test/PresentationMidlet.java
+jar cfm /build/presentation.jar /project/test/java/presentation.mf -C /build/classes/presentation .
 mkdir -p /build/classes/instant-checkpoint
 javac -source 8 -target 8 -encoding UTF-8 \
   -cp "$DIST/lib/freej2me-plus.jar" \
@@ -315,7 +320,7 @@ cp "$BUILD_ROOT/audio-transcoder/audio-transcoder.glue.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/audio-transcoder.worker.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/runtime-loader.js" "$OUTPUT_ROOT/"
 mkdir -p "$PROJECT_ROOT/.cache/test-runtime"
-cp "$BUILD_ROOT/lifecycle.jar" "$BUILD_ROOT/instant-checkpoint.jar" "$BUILD_ROOT/rms-persistence.jar" "$BUILD_ROOT/rendering-performance.jar" "$BUILD_ROOT/alpha-compositing.jar" "$PROJECT_ROOT/.cache/test-runtime/"
+cp "$BUILD_ROOT/lifecycle.jar" "$BUILD_ROOT/instant-checkpoint.jar" "$BUILD_ROOT/rms-persistence.jar" "$BUILD_ROOT/rendering-performance.jar" "$BUILD_ROOT/alpha-compositing.jar" "$BUILD_ROOT/presentation.jar" "$PROJECT_ROOT/.cache/test-runtime/"
 
 if [[ -f "$BUILD_ROOT/build-inputs.json" ]]; then
   cp "$BUILD_ROOT/build-inputs.json" "$OUTPUT_ROOT/build-inputs.json"

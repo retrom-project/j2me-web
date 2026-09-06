@@ -9,3 +9,5 @@ The core build compiles them into ignored `.cache/test-runtime/` JARs. These JAR
 `AlphaCompositingMidlet.java` is project-authored (CC0-1.0). It checks MIDP and AWT source-over, straight ARGB color retention, and twelve successive dialog-row frames without stale pixels.
 
 The rendering fixture also measures RGBA conversion and translucent sprite compositing. The alpha fixture checks the native pixel binding and invalid-range rejection. These additions contain only generated pixel patterns.
+
+PresentationMidlet and presentation.mf are project-authored repaint/screenshot/input regression inputs. The locally built JAR is not shipped.

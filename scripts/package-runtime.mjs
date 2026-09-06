@@ -126,7 +126,7 @@ try {
       freej2meOnMinijvm: "c9a13512b508700ce31b157416410aeac9070057",
       freej2mePlus: "fa2f16abdf03860bf55c62ed29c64e6cc3b020a3",
       ffmpeg: "db69d06eeeab4f46da15030a80d539efb4503ca8",
-      miniJVM: "91666ab64aa612e754f9b7366ab4efb1c8a6e275"
+      miniJVM: "cf0f91fcc42b580f35c8cde8d2baef11bd44013b"
     },
     tag
   };

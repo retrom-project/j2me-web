@@ -1,3 +1,4 @@
+import { LcdPresenter } from "./lcd-presenter.js";
 import { loadModuleFactory } from "./runtime-module-loader.js";
 import { loadCachedJar } from "./jar-cache.js";
 import { CHECKPOINT_FORMAT, decodeCheckpoint, encodeCheckpoint, measureCheckpoint } from "./checkpoint-codec.js";
@@ -18,7 +19,6 @@ import {
 import {
   VIDEO_SCALING_MODES,
   computePresentationSize,
-  scale2xPixels,
   validScalingMode
 } from "./video-scaling.js";
 import { VIRTUAL_KEY_ACTIONS, keyDescriptor } from "./virtual-keypad.js";
@@ -138,6 +138,7 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
   });
   const initialScalingMode = config.adapter.scalingMode ?? "SHARP_FIT";
   const surface = createSurface(document, frameWindow, profile.viewport, initialScalingMode);
+  const presenter = new LcdPresenter(surface);
   target.replaceChildren(surface.root);
   const runtimeBaseUrl = new URL(normalizedBase(config.adapter.runtimeBaseUrl), document.baseURI);
   const previousMediaTranscode = frameWindow.__j2meMediaTranscode;
@@ -298,7 +299,7 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
     const mirror = () => {
       if (exited) return;
       if (!paused) {
-        drawLcd(surface, viewport, viewMode === "LCD");
+        presenter.sync(module._j2me_get_frame_count(), viewMode === "LCD");
         if (document.hasFocus() && !document.hidden) updateGamepad(frameWindow, surface.source, pressedGamepadKeys, profile);
         else releaseKeys(frameWindow, surface.source, pressedGamepadKeys, profile);
         mirrorCount += 1;
@@ -399,7 +400,10 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
     },
     pause: pauseCore,
     resume: resumeCore,
-    screenshot: () => canvasBlob(surface.staging),
+    screenshot: () => {
+      presenter.sync(module._j2me_get_frame_count(), viewMode === "LCD");
+      return canvasBlob(surface.staging);
+    },
     setVolume: (value) => {
       frameWindow.__j2meAudioProfile.masterGain = value;
       const audio = frameWindow.__j2meWebAudio;
@@ -413,6 +417,8 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
       if (!validScalingMode(mode)) throw new Error("J2ME_SCALING_MODE_INVALID");
       scalingMode = mode;
       resizeDisplay(surface, viewport, scalingMode);
+      presenter.invalidate();
+      presenter.sync(module._j2me_get_frame_count(), viewMode === "LCD");
       surface.source.focus({ preventScroll: true });
     },
     setInput: (action, pressed) => {
@@ -429,12 +435,16 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
     setViewMode: (mode) => {
       viewMode = mode;
       applyViewMode(surface, viewMode);
+      presenter.invalidate();
+      presenter.sync(module._j2me_get_frame_count(), viewMode === "LCD");
       surface.source.focus({ preventScroll: true });
     },
     setViewport: (value) => {
       if (!validViewport(value)) throw new Error("J2ME_VIEWPORT_INVALID");
       viewport = { width: value.width, height: value.height };
       resizeDisplay(surface, viewport, scalingMode);
+      presenter.invalidate(true);
+      presenter.sync(module._j2me_get_frame_count(), viewMode === "LCD");
     },
     unlockAudio: () => resumeRuntimeAudio(frameWindow)
   };
@@ -663,29 +673,6 @@ function applyViewMode(surface, mode) {
   surface.source.style.position = lcd ? "absolute" : "relative";
   surface.source.style.opacity = lcd ? "0" : "1";
   surface.source.style.pointerEvents = lcd ? "none" : "auto";
-}
-
-function drawLcd(surface, viewport, present = true) {
-  if (!surface.source.width || !surface.source.height) return;
-  const context = surface.display.getContext("2d", { alpha: false });
-  if (!context) return;
-  try {
-    const stagingContext = surface.staging.getContext("2d", { alpha: false, willReadFrequently: true });
-    if (!stagingContext) return;
-    stagingContext.drawImage(surface.source, 2, 32, viewport.width, viewport.height,
-      0, 0, viewport.width, viewport.height);
-    if (!present) return;
-    if (surface.scalingMode !== "SCALE2X") {
-      context.drawImage(surface.staging, 0, 0, viewport.width, viewport.height,
-        0, 0, surface.display.width, surface.display.height);
-      return;
-    }
-    const input = stagingContext.getImageData(0, 0, viewport.width, viewport.height);
-    scale2xPixels(new Uint32Array(input.data.buffer), viewport.width, viewport.height, surface.scaledPixels);
-    surface.scaledImage ??= context.createImageData(viewport.width * 2, viewport.height * 2);
-    new Uint32Array(surface.scaledImage.data.buffer).set(surface.scaledPixels);
-    context.putImageData(surface.scaledImage, 0, 0);
-  } catch { /* The WebGL surface may be unavailable during a resize. */ }
 }
 
 function installPointerForwarding(surface, frameWindow, activate, isActive) {
