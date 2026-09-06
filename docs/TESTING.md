@@ -50,3 +50,5 @@ npm run build:runtime
 ### Actual VM rendering performance
 
 `npm run test:rendering-performance` runs the project-authored 240×320 workload through the browser VM: full-screen integer image copies (with pixel verification), MIDP sprite draw/flush cycles, and a 3-second stationary screen. The stationary screen must stop scheduling presentations (at most four settling frames); game drawing uses an 80 ms frame budget. Evidence includes per-frame workload time and Chrome main-thread task time, independently of the outer presentation FPS.
+
+`npm run test:alpha-compositing` verifies MIDP output alpha, integer/scaled AWT straight-ARGB copies and twelve successive panel frames with moving text-row markers. Old text pixels must equal the freshly drawn panel background. The native Java build additionally runs MIDP source-over examples and randomized AWT clipping/alpha cases.

@@ -68,3 +68,5 @@ miniJVM 的浏览器暂停请求由 GC 线程处理，复用 VM 协调锁、线�
 LCD 逻辑尺寸与显示缩放分离。截图、指针坐标和游戏逻辑仍使用原始 viewport，显示层可选 `INTEGER_NEAREST`、`SHARP_FIT` 或 `SCALE2X`。
 
 The AWT Canvas presents only when miniGUI requests a repaint; painting must not schedule another repaint itself. Each presentation converts ARGB to native RGBA once. Integer image translations use a clipped source-over blit; other transforms retain the affine path. The public frame counter measures outer presentation and is not a game-logic tick counter.
+
+MIDP and AWT buffers use straight ARGB. Source-over must include destination alpha and normalize RGB for the resulting alpha; drawing onto an opaque background must leave opaque output. Otherwise the presentation buffer blends an already-composited frame again, darkening panels and retaining stale scrolling text. Game-requested translucent effects remain intact.
