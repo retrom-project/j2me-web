@@ -24,3 +24,7 @@ test("input probe rejects malformed or out-of-range values", () => {
   assert.equal(consumeInputProbe("[j2me-web-input] 1 trailing", null), null);
   assert.equal(consumeInputProbe("[j2me-web-input] 999999", null), null);
 });
+
+test("input receipt identifies the Canvas that received the callback", () => {
+  assert.equal(consumeInputProbe("[j2me-web-input] -7 target=org.example.Game", null).targetClass, "org.example.Game");
+});

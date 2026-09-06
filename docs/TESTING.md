@@ -46,3 +46,7 @@ npm run build:runtime
 - 解压后确认 manifest 所列的 Wasm、worker 和数据资产全部存在。
 
 具体发布顺序见 [MAINTENANCE.md](MAINTENANCE.md)。
+
+### Actual VM rendering performance
+
+`npm run test:rendering-performance` runs the project-authored 240×320 workload through the browser VM: full-screen integer image copies (with pixel verification), MIDP sprite draw/flush cycles, and a 3-second stationary screen. The stationary screen must stop scheduling presentations (at most four settling frames); game drawing uses an 80 ms frame budget. Evidence includes per-frame workload time and Chrome main-thread task time, independently of the outer presentation FPS.

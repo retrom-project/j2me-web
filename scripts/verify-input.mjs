@@ -90,7 +90,7 @@ try {
   }
 
   const gamepadExpected = [
-    [12, -1], [13, -2], [14, -3], [15, -4], [0, -5], [2, -6], [1, -7]
+    [12, -1], [13, -2], [14, -3], [15, -4], [0, -5], [2, -6], [1, -7], [8, -7], [9, -6]
   ];
   for (const [button, mobileKey] of gamepadExpected) {
     const probe = await dispatchGamepadAndRead(page, button, sequence);

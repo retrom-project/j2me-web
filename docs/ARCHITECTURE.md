@@ -66,3 +66,5 @@ miniJVM 的浏览器暂停请求由 GC 线程处理，复用 VM 协调锁、线�
 宿主通过逻辑 J2ME 动作输入，不需要伪造 DOM 键盘事件。标准映射覆盖方向、确认、左右软键、数字、`*` 和 `#`。暂停、退出、失焦或手柄断开时必须释放全部按键。
 
 LCD 逻辑尺寸与显示缩放分离。截图、指针坐标和游戏逻辑仍使用原始 viewport，显示层可选 `INTEGER_NEAREST`、`SHARP_FIT` 或 `SCALE2X`。
+
+The AWT Canvas presents only when miniGUI requests a repaint; painting must not schedule another repaint itself. Each presentation converts ARGB to native RGBA once. Integer image translations use a clipped source-over blit; other transforms retain the affine path. The public frame counter measures outer presentation and is not a game-logic tick counter.

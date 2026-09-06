@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "packageName": "j2me-web",
-  "packageVersion": "0.3.4-dev.3",
+  "packageVersion": "0.3.4-dev.5",
   "publicApiVersion": 1,
   "admissionStatus": "CANDIDATE",
   "adapter": {

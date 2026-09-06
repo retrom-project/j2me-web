@@ -3,8 +3,8 @@
 本项目的构建产物组合了以下第三方组件：
 
 - [retrom-project/miniJVM](https://github.com/retrom-project/miniJVM)，固定到 `ef99e1c40c40e57380ba9613ac5a9b7f1975591a`（浏览器生命周期与多维数组修复），基于 `digitalgust/miniJVM@ac94e62781deda037875ff69d78f272a327a72bc`。其顶层 LICENSE 声明 `/minijvm/java/` 为 GPL-2.0，其余部分为 MIT License；分发时不能把整个仓库笼统视为 MIT。
-- [retrom-project/freej2meOnMinijvm](https://github.com/retrom-project/freej2meOnMinijvm)，固定到 `abc7aebca03b914df289e8e2f566c3a8b4173464`（tag `j2me-web-c6af07fffde5-8`），基于 `digitalgust/freej2meOnMinijvm@c6af07fffde51fe1b1959f584376dec8d912d456`。上游和当前 fork 均未附带顶层 LICENSE，公开分发前应向原作者确认适配层授权。
-- [retrom-project/freej2me-plus](https://github.com/retrom-project/freej2me-plus)，固定到 `c703304c57812be8757412696c85edce8688b3bc`（包含 RMS 句柄修复，基于 tag `j2me-web-f68a120-8`），基于 `TASEmulators/freej2me-plus@f68a12052532487f9606ba566b981aff19cc8887`。FreeJ2ME 声明为 GPL-3.0-or-later，并包含采用 ObjectWeb ASM License 的 ASM 代码。
+- [retrom-project/freej2meOnMinijvm](https://github.com/retrom-project/freej2meOnMinijvm)，固定到 `3ecf8b4e3a8e921089bc5f9fe2926bfa23174016`（包含 Canvas 呈现和整数图片复制优化，基于 tag `j2me-web-c6af07fffde5-8`），基于 `digitalgust/freej2meOnMinijvm@c6af07fffde51fe1b1959f584376dec8d912d456`。上游和当前 fork 均未附带顶层 LICENSE，公开分发前应向原作者确认适配层授权。
+- [retrom-project/freej2me-plus](https://github.com/retrom-project/freej2me-plus)，固定到 `24e7c2982948bf93913a01c081d156ed96afa059`（包含 RMS 句柄修复和实际 Canvas 输入回调验证，基于 tag `j2me-web-f68a120-8`），基于 `TASEmulators/freej2me-plus@f68a12052532487f9606ba566b981aff19cc8887`。FreeJ2ME 声明为 GPL-3.0-or-later，并包含采用 ObjectWeb ASM License 的 ASM 代码。
 - [TinySoundFont](https://github.com/schellingb/TinySoundFont)，固定到 `853a0a171759f1ddba0de1442133a75912bbeffa`，MIT License。构建使用其 `tsf.h` 与 `tml.h`。
 - [TimGM6mb.sf2](https://github.com/musescore/musescore-old/blob/0c1f25dc3cdd2f9332118fa221a344eb8f6ee702/mscore/share/sound/TimGM6mb.sf2)，取自 MuseScore old 固定提交；MuseScore 文档将其标注为 GNU GPL v2。该文件被打包进 `runtime.data`。
 - [Emscripten](https://github.com/emscripten-core/emscripten) 3.1.46 编译工具链及其运行时输出。

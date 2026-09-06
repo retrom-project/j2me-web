@@ -1,6 +1,6 @@
 {
   "name": "j2me-web",
-  "version": "0.3.4-dev.3",
+  "version": "0.3.4-dev.5",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,6 +11,7 @@
     "test:audio": "node scripts/verify-audio.mjs",
     "test:media": "node scripts/verify-media.mjs",
     "test:3d": "xvfb-run -a node scripts/verify-3d.mjs",
+    "test:rendering-performance": "node scripts/verify-rendering-performance.mjs",
     "test:performance": "xvfb-run -a node scripts/verify-performance.mjs",
     "test:xianjian-perfect": "xvfb-run -a node scripts/verify-xianjian-perfect.mjs",
     "test:gc": "xvfb-run -a node scripts/verify-gc.mjs",

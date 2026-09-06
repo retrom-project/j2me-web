@@ -123,8 +123,8 @@ try {
     repository: "https://github.com/retrom-project/j2me-web",
     schemaVersion: 2,
     sourceCommits: {
-      freej2meOnMinijvm: "abc7aebca03b914df289e8e2f566c3a8b4173464",
-      freej2mePlus: "c703304c57812be8757412696c85edce8688b3bc",
+      freej2meOnMinijvm: "3ecf8b4e3a8e921089bc5f9fe2926bfa23174016",
+      freej2mePlus: "24e7c2982948bf93913a01c081d156ed96afa059",
       ffmpeg: "db69d06eeeab4f46da15030a80d539efb4503ca8",
       miniJVM: "ef99e1c40c40e57380ba9613ac5a9b7f1975591a"
     },

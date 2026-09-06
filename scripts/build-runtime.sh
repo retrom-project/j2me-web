@@ -7,9 +7,9 @@ OUTPUT_ROOT="$PROJECT_ROOT/public/runtime"
 MINIJVM_REPOSITORY="${MINIJVM_REPOSITORY:-https://github.com/retrom-project/miniJVM.git}"
 MINIJVM_COMMIT="${MINIJVM_COMMIT:-ef99e1c40c40e57380ba9613ac5a9b7f1975591a}"
 FREEJ2ME_REPOSITORY="${FREEJ2ME_REPOSITORY:-https://github.com/retrom-project/freej2meOnMinijvm.git}"
-FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-abc7aebca03b914df289e8e2f566c3a8b4173464}"
+FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-3ecf8b4e3a8e921089bc5f9fe2926bfa23174016}"
 FREEJ2ME_PLUS_REPOSITORY="${FREEJ2ME_PLUS_REPOSITORY:-https://github.com/retrom-project/freej2me-plus.git}"
-FREEJ2ME_PLUS_COMMIT="${FREEJ2ME_PLUS_COMMIT:-c703304c57812be8757412696c85edce8688b3bc}"
+FREEJ2ME_PLUS_COMMIT="${FREEJ2ME_PLUS_COMMIT:-24e7c2982948bf93913a01c081d156ed96afa059}"
 TINYSOUNDFONT_REPOSITORY="https://github.com/schellingb/TinySoundFont.git"
 TINYSOUNDFONT_COMMIT="853a0a171759f1ddba0de1442133a75912bbeffa"
 FFMPEG_REPOSITORY="https://github.com/FFmpeg/FFmpeg.git"
@@ -185,6 +185,8 @@ if [[ -d "$APP/src/test/java" ]]; then
     -cp "/build/classes/freej2me:$DIST/lib/freej2me-plus.jar" \
     -d /build/classes/freej2me-tests @/build/classes/freej2me-tests/sources.txt
   java -cp "/build/classes/freej2me:/build/classes/freej2me-tests:$DIST/lib/freej2me-plus.jar" \
+    org.mini.awt.ArgbBlitterTest
+  java -cp "/build/classes/freej2me:/build/classes/freej2me-tests:$DIST/lib/freej2me-plus.jar" \
     com.ebsee.emu.audio.ExactLengthReaderTest
   java -cp "/build/classes/freej2me:/build/classes/freej2me-tests:$DIST/lib/freej2me-plus.jar" \
     com.ebsee.emu.audio.DeferredAudioHandleTest
@@ -217,6 +219,11 @@ javac -source 8 -target 8 -encoding UTF-8 \
   -cp "$DIST/lib/freej2me-plus.jar" \
   -d /build/classes/rms-persistence /project/test/java/org/j2me/test/RmsPersistenceMidlet.java
 jar cfm /build/rms-persistence.jar /project/test/java/rms-persistence.mf -C /build/classes/rms-persistence .
+mkdir -p /build/classes/rendering-performance
+javac -source 8 -target 8 -encoding UTF-8 \
+  -cp "$DIST/lib/freej2me-plus.jar" \
+  -d /build/classes/rendering-performance /project/test/java/org/j2me/test/RenderingPerformanceMidlet.java
+jar cfm /build/rendering-performance.jar /project/test/java/rendering-performance.mf -C /build/classes/rendering-performance .
 '
 
 echo "[2/4] Compiling miniJVM to WebAssembly"
@@ -297,7 +304,7 @@ cp "$BUILD_ROOT/audio-transcoder/audio-transcoder.glue.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/audio-transcoder.worker.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/runtime-loader.js" "$OUTPUT_ROOT/"
 mkdir -p "$PROJECT_ROOT/.cache/test-runtime"
-cp "$BUILD_ROOT/lifecycle.jar" "$BUILD_ROOT/instant-checkpoint.jar" "$BUILD_ROOT/rms-persistence.jar" "$PROJECT_ROOT/.cache/test-runtime/"
+cp "$BUILD_ROOT/lifecycle.jar" "$BUILD_ROOT/instant-checkpoint.jar" "$BUILD_ROOT/rms-persistence.jar" "$BUILD_ROOT/rendering-performance.jar" "$PROJECT_ROOT/.cache/test-runtime/"
 
 if [[ -f "$BUILD_ROOT/build-inputs.json" ]]; then
   cp "$BUILD_ROOT/build-inputs.json" "$OUTPUT_ROOT/build-inputs.json"

@@ -1,6 +1,6 @@
 export const INPUT_PROBE_KIND = "J2ME_INPUT_V1";
 
-const marker = /^\[j2me-web-input\] (-?\d+)$/u;
+const marker = /^\[j2me-web-input\] (-?\d+)(?: target=([\w.$]+))?$/u;
 
 export function consumeInputProbe(message, previous) {
   const match = marker.exec(String(message));
@@ -11,6 +11,7 @@ export function consumeInputProbe(message, previous) {
     kind: INPUT_PROBE_KIND,
     keyCode,
     schemaVersion: 1,
+    ...(match[2] ? {targetClass: match[2]} : {}),
     sequence: (previous?.sequence ?? 0) + 1
   };
 }
