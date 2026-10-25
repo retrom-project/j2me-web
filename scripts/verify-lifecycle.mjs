@@ -21,6 +21,67 @@ try {
   }
   browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || "/usr/bin/google-chrome", headless: true,
     args: ["--no-sandbox", "--disable-dev-shm-usage", "--enable-unsafe-swiftshader"] });
+  await check("uncaught Wasm and rejected runtime tasks fail immediately in loading and running", async () => {
+    const page = await browser.newPage();
+    try {
+      await page.goto(origin);
+      const results = await page.evaluate(async () => {
+        const {createRuntime, sha256Hex} = await import("/runtime-api.js");
+        const bytes = Uint8Array.of(80, 75, 3, 4), digest = await sha256Hex(bytes);
+        const url = URL.createObjectURL(new Blob([bytes]));
+        const config = {sessionId: "uncaught", contentDigest: digest,
+          source: {kind: "J2ME_JAR_V1", name: "owned.jar", url, sizeBytes: bytes.length, sha256: digest},
+          adapter: {adapterKind: "J2ME_MINIJVM_WEB", adapterId: "j2me-minijvm-web", storage: "HOST",
+            runtimeBaseUrl: `${location.origin}/runtime/`}};
+        // A project-owned Wasm function executing unreachable, rather than a simulated onAbort.
+        const trap = new WebAssembly.Instance(new WebAssembly.Module(Uint8Array.from([
+          0,97,115,109,1,0,0,0,1,4,1,96,0,0,3,2,1,0,
+          7,8,1,4,116,114,97,112,0,0,10,5,1,3,0,0,11
+        ]))).exports.trap;
+        const results = [];
+        for (const phase of ["LOADING", "RUNNING", "REJECTION"]) {
+          const target = document.createElement("div"); document.body.append(target);
+          const events = []; let initialized = false, disposals = 0;
+          const runtime = createRuntime(config, {frameWindow: window, moduleFactory: async options => {
+            options.onRuntimeInitialized(); initialized = true;
+            return {FS: {analyzePath: () => ({exists: false})},
+              _j2me_get_frame_count: () => 0,
+              callMain: () => {if (phase !== "LOADING") options.print("HOST_BRIDGE_READY");},
+              PThread: {terminateAllThreads() {disposals++;}}};
+          }});
+          runtime.subscribe(event => events.push(event));
+          const mounting = runtime.mount(target).catch(error => error.message);
+          if (phase === "LOADING") while (!initialized) await new Promise(resolve => setTimeout(resolve, 5));
+          else await mounting;
+          window.dispatchEvent(new ErrorEvent("error", {message: "owned non-exception browser notification"}));
+          if (runtime.getState() === "FAILED") throw new Error("Browser notification was treated as a failed task");
+          if (phase === "REJECTION") {
+            // A page script, rather than DevTools' promise-tracked evaluate task.
+            const script = document.createElement("script");
+            script.textContent = 'setTimeout(() => {void Promise.reject(new Error("owned rejected task"));}, 0);';
+            document.head.append(script); script.remove();
+          } else setTimeout(trap, 0);
+          const deadline = performance.now() + 1000;
+          while (runtime.getState() !== "FAILED" && performance.now() < deadline)
+            await new Promise(resolve => setTimeout(resolve, 5));
+          const state = runtime.getState();
+          await runtime.exit().catch(() => undefined); await mounting;
+          // A late event after teardown must not mutate this finished runtime.
+          window.dispatchEvent(new ErrorEvent("error", {error: new Error("after exit")}));
+          await new Promise(resolve => setTimeout(resolve, 10));
+          const fatals = events.filter(event => event.type === "FATAL_ERROR");
+          results.push({phase, state, fatals: fatals.length, disposed: disposals > 0,
+            originalCause: fatals[0]?.reason?.includes(phase === "REJECTION" ? "owned rejected task" : "unreachable") === true,
+            exitState: runtime.getState(), children: target.childElementCount});
+          target.remove();
+        }
+        URL.revokeObjectURL(url); return results;
+      });
+      assert.deepEqual(results, ["LOADING", "RUNNING", "REJECTION"].map(phase => ({
+        phase, state: "FAILED", fatals: 1, disposed: true, originalCause: true, exitState: "FAILED", children: 0
+      })));
+    } finally {await page.close();}
+  });
   await check("abort during download cannot create a surface after exit", async () => {
     const page = await browser.newPage();
     try {

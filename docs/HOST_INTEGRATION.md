@@ -69,7 +69,7 @@ HTTP 和本地 Blob 来源均受支持，存储不可用时回退下载。此缓
 
 `screenshot()` 返回逻辑 viewport 尺寸的 PNG，显示缩放和 Demo 的模拟器视图不改变截图尺寸。`getFrameCount()` 统计核心完成的画面提交次数，不代表 MIDlet 的业务循环次数。
 
-加载中的 `exit()` / AbortSignal 会取消下载和启动，并清理已经创建的资源；退出 Promise 完成后不会启动迟到的模块。运行期 Wasm abort 和宿主桥接故障会触发 `FATAL_ERROR` 并进入 `FAILED`。宿主订阅者或诊断回调抛错不会打断运行时清理。
+加载中的 `exit()` / AbortSignal 会取消下载和启动，并清理已经创建的资源；退出 Promise 完成后不会启动迟到的模块。Wasm abort、宿主桥接故障及运行帧内未捕获的异常/Promise 拒绝，在加载和运行阶段都会立即触发 `FATAL_ERROR` 并进入 `FAILED`；保留首个原始原因，退出时移除监听。宿主订阅者或诊断回调抛错不会打断运行时清理。
 
 ## 存储模式
 

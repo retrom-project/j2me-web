@@ -180,6 +180,7 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
     catch { /* Host diagnostics must not interrupt core execution. */ }
   };
   const fatal = (reason) => {
+    if (exited || coreFailed) return;
     coreFailed = true;
     const error = stableJ2meError(reason);
     coreError = error;
@@ -290,6 +291,18 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
     releaseKeys(frameWindow, surface.source, pressedVirtualKeys, profile);
   };
   const hidden = () => { if (document.hidden) frameWindow.dispatchEvent(new frameWindow.Event("blur")); };
+  // Wasm callbacks and queued browser tasks can throw outside Emscripten's
+  // onAbort boundary. The isolated runtime frame owns these uncaught failures.
+  const exception = (reason) => fatal(typeof reason?.message === "string" ? reason : new Error(String(reason)));
+  const uncaught = (event) => {
+    // Browser notifications without an exception or source location (e.g.
+    // deferred resize delivery) do not indicate a failed execution task.
+    if (event.error == null && !(event.lineno > 0 || event.colno > 0)) return;
+    exception(event.error ?? new Error(event.message || "J2ME_RUNTIME_UNCAUGHT"));
+  };
+  const rejected = (event) => exception(event.reason);
+  frameWindow.addEventListener("error", uncaught);
+  frameWindow.addEventListener("unhandledrejection", rejected);
   frameWindow.addEventListener("blur", releaseInput, true);
   document.addEventListener("visibilitychange", hidden);
   const pointerHandlers = installPointerForwarding(surface, frameWindow, () => {
@@ -387,6 +400,8 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
       else frameWindow.__j2meAudioProfile = previousAudioProfile;
     }
     pointerHandlers.remove();
+    frameWindow.removeEventListener("error", uncaught);
+    frameWindow.removeEventListener("unhandledrejection", rejected);
     frameWindow.removeEventListener("blur", releaseInput, true);
     document.removeEventListener("visibilitychange", hidden);
     surface.resizeObserver?.disconnect();
