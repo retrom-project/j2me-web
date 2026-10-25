@@ -5,7 +5,7 @@ PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CACHE_ROOT="$PROJECT_ROOT/.cache/upstream"
 OUTPUT_ROOT="$PROJECT_ROOT/public/runtime"
 MINIJVM_REPOSITORY="${MINIJVM_REPOSITORY:-https://github.com/retrom-project/miniJVM.git}"
-MINIJVM_COMMIT="${MINIJVM_COMMIT:-e9cfeb764025d87ea323a77969c5fcb34854ac2f}"
+MINIJVM_COMMIT="${MINIJVM_COMMIT:-a4b94e3a18d29d6df707c14ed7ce4b487bd8aa93}"
 FREEJ2ME_REPOSITORY="${FREEJ2ME_REPOSITORY:-https://github.com/retrom-project/freej2meOnMinijvm.git}"
 FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-dbadb72b6ca4afde8b4790c77cfebd855070d20f}"
 FREEJ2ME_PLUS_REPOSITORY="${FREEJ2ME_PLUS_REPOSITORY:-https://github.com/retrom-project/freej2me-plus.git}"
@@ -25,6 +25,8 @@ command -v docker >/dev/null || {
 }
 
 mkdir -p "$CACHE_ROOT" "$OUTPUT_ROOT"
+# Project-authored deterministic data for the native I/O browser regression.
+node -e 'const fs=require("node:fs");fs.writeFileSync(process.argv[1],Buffer.from(Array.from({length:65536},(_,i)=>i%251)))' "$PROJECT_ROOT/.cache/io-payload.bin"
 
 ensure_cache() {
   local repository=$1
@@ -241,8 +243,9 @@ javac -source 8 -target 8 -encoding UTF-8 \
 jar cfm /build/alpha-compositing.jar /project/test/java/alpha-compositing.mf -C /build/classes/alpha-compositing .
 mkdir -p /build/classes/startup-fixtures
 javac -source 8 -target 8 -cp "$DIST/lib/freej2me-plus.jar" -d /build/classes/startup-fixtures \
-  /project/test/java/org/j2me/test/StartupFixtureMidlet.java /project/test/java/org/j2me/test/NativeSaveFixtureMidlet.java
-for kind in single multi reordered loop prompt fail native-save; do
+  /project/test/java/org/j2me/test/StartupFixtureMidlet.java /project/test/java/org/j2me/test/NativeSaveFixtureMidlet.java /project/test/java/org/j2me/test/NativeIoFixtureMidlet.java
+cp /project/.cache/io-payload.bin /build/classes/startup-fixtures/io-payload.bin
+for kind in single multi reordered loop prompt fail native-save native-io; do
   jar cfm "/build/startup-$kind.jar" "/project/test/java/startup-$kind.mf" -C /build/classes/startup-fixtures .
 done
 java -cp /build/classes/freej2me-plus javax.microedition.rms.RecordStoreStorageTest
@@ -264,6 +267,7 @@ mapfile -t gui_sources < <(find desktop/glfw_gui/c -type f -name "*.c" ! -path "
 
 bash minijvm/test/native/run-zip-test.sh
 bash minijvm/test/native/run-lock-test.sh
+bash minijvm/test/native/run-io-test.sh
 bash minijvm/test/native/run-vm-test.sh /build/dist/lib /build/classes/vm-tests:/build/classes/freej2me-tests
 
 cc -std=c11 -O2 -Wall -Wextra -Werror desktop/glfw_gui/test/pixel_buffer_test.c -lm -o /build/pixel-buffer-test
