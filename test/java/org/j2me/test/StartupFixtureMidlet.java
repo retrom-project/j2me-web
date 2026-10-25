@@ -25,7 +25,7 @@ public class StartupFixtureMidlet extends MIDlet {
                 graphics.setColor(0xffffff);
                 graphics.drawString("Entry / input " + presses, 5, 20, Graphics.TOP | Graphics.LEFT);
             }
-            protected void keyPressed(int key) {
+            public void keyPressed(int key) {
                 confirmed = true;
                 presses++;
                 System.out.println("STARTUP_FIXTURE_INPUT " + presses);

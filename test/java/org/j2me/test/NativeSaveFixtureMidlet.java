@@ -24,7 +24,7 @@ public final class NativeSaveFixtureMidlet extends MIDlet {
                 graphics.drawString("Saved: " + saved, 10, 30, Graphics.TOP | Graphics.LEFT);
                 graphics.drawString("Fire to save", 10, 55, Graphics.TOP | Graphics.LEFT);
             }
-            protected void keyPressed(int key) {
+            public void keyPressed(int key) {
                 if (getGameAction(key) != FIRE) return;
                 try {
                     RecordStore store = RecordStore.openRecordStore("native-counter", true);
