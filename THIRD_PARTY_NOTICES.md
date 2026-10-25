@@ -2,7 +2,7 @@
 
 本项目的构建产物组合了以下第三方组件：
 
-- [retrom-project/miniJVM](https://github.com/retrom-project/miniJVM)，固定到 `e96e3b124e433d69bcfb5d23249738fa6453bcd6`（类初始化与元数据锁、原生 I/O 安全点、ZIP 和 GUI 构造发布修复），基于 `digitalgust/miniJVM@ac94e62781deda037875ff69d78f272a327a72bc`。其顶层 LICENSE 声明 `/minijvm/java/` 为 GPL-2.0，其余部分为 MIT License；分发时不能把整个仓库笼统视为 MIT。
+- [retrom-project/miniJVM](https://github.com/retrom-project/miniJVM)，固定到 `b335244aaa1f918c00af5bd025f7bec25f6b5e60`（类初始化与元数据锁、原生 I/O 安全点、ZIP、GUI 构造发布、数组分配失败与 worker 日志非阻塞修复），基于 `digitalgust/miniJVM@ac94e62781deda037875ff69d78f272a327a72bc`。其顶层 LICENSE 声明 `/minijvm/java/` 为 GPL-2.0，其余部分为 MIT License；分发时不能把整个仓库笼统视为 MIT。
 - [retrom-project/freej2meOnMinijvm](https://github.com/retrom-project/freej2meOnMinijvm)，固定到 `dbadb72b6ca4afde8b4790c77cfebd855070d20f`（包含 MIDI 序列化、Rectangle 相交与字体初始化修复），基于 `digitalgust/freej2meOnMinijvm@c6af07fffde51fe1b1959f584376dec8d912d456`。上游和当前 fork 均未附带顶层 LICENSE，公开分发前应向原作者确认适配层授权。
 - [retrom-project/freej2me-plus](https://github.com/retrom-project/freej2me-plus)，固定到 `e2b4ddff0476f90b5fe33474b66c5ad681e654e7`（包含 Display 重入、音调播放、统一 AMS 启动与 RMS 增量提交修复），基于 `TASEmulators/freej2me-plus@f68a12052532487f9606ba566b981aff19cc8887`。FreeJ2ME 声明为 GPL-3.0-or-later，并包含采用 ObjectWeb ASM License 的 ASM 代码。
 - [TinySoundFont](https://github.com/schellingb/TinySoundFont)，固定到 `853a0a171759f1ddba0de1442133a75912bbeffa`，MIT License。构建使用其 `tsf.h` 与 `tml.h`。
