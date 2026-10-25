@@ -20,6 +20,14 @@ npm run build:runtime
 
 `npm run test:rms-persistence` 使用自编的中文名称 MIDlet 验证删除后覆盖保存、同一存储多次打开的数据共享、独立存储关闭语义、Java 数据流及部分分配的多维数组，并从公共 API 导出 RMS。数组用例检查 `multianewarray` 未分配的维度保持 null，防止 VM 越界读取维度参数并让游戏保存错误数据。结果写入 `.cache/evidence/rms-persistence.json`。`J2ME_RMS_RUNTIME_PATH` 可指定本地开发字节的服务路径；此时报告仅代表该开发字节，不能替代固定提交的构建验证。单元测试还覆盖多文件写入中间态的拒绝及零字节记录保留。
 
+## 通用启动与虚拟机回归
+
+构建在实际原生 miniJVM 上运行 `ClassInitializationTest`、`ClassInitializationReentryTest` 和 Rectangle 边界用例，并运行原生 ZIP 大小写及递归元数据锁等待用例。Display 回归经过真实事件线程，覆盖同一界面重入、show/hide 回调跳转、请求覆盖及 Alert 关闭/计时器。MIDI 回归强制加载随包兼容类，再由独立 JDK 解析 SMF；音调回归核对节拍、音量、循环和 Nokia 播放控制。RMS 回归覆盖增量写入、提交中断恢复和公共 RecordStore 行为。
+
+构建生成 `.cache/test-runtime/startup-{single,multi,reordered,loop,prompt,fail,native-save}.jar`，全部为仓库自有测试内容。使用公共生命周期、`STARTUP_INTERACTION`、`respondToStartupInteraction` 和输入 API 验证任意入口选择、取消、持续运行的 `startApp`、真实提示操作和启动失败。READY 必须来自所选 MIDlet 的画面和输入队列，选择菜单不计为运行通过。`native-save` 的 Fire 操作通过实际 RMS 写入计数，用于验证不同 Launch 读档后继续输入。
+
+实际游戏回归不设置身份补丁：记录输入 JAR 与全部核心资产摘要，运行满 10 秒，检查最后一张逻辑截图非黑、正帧数及无致命错误。启动、等待用户选择、运行和退出分别保存阶段与有界超时；失败现场不得以重试的通过结果覆盖。
+
 ## 即时 checkpoint 准入
 
 `npm run test:instant-checkpoint` 使用由 `build:runtime` 生成的项目自有 `InstantCheckpointMidlet`，只保存在内存中的位置不会写入 RMS。它经过真实 Wasm，验证键盘、标准手柄的方向/确认/取消、截图尺寸、销毁后新实例恢复、继续输入及游戏自身退出清理，结果写入被忽略的 `.cache/evidence/instant-checkpoint.json`。该命令必须在 `j2me-rms` 上失败；失败表示能力未实现，不能改为 expected-failure 或放宽断言。它是核心准入诊断，不替代 Retrom 导入、审核预览、Launch、共享 dispatcher 和 Save 的产品验收。

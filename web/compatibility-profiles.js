@@ -26,37 +26,14 @@ export const DEFAULT_COMPATIBILITY_PROFILE = deepFreeze({
     halfResolution: false
   },
   launch: {
-    threadedStart: false
+    midletNumber: null
   }
 });
 
-const profileCatalog = new Map([
-  ["187550494eae6b8923edbf96524f4d0e84782467286fd2fd666c10f23935a07c", {
-    id: "xianjian-128x144",
-    viewport: { width: 128, height: 144 }
-  }],
-  ["75aaf194cbd01715d4eaa99720e6876ff2355e494d3ed5f09c33d85cae81b100", {
-    id: "xianjian-perfect-176x208",
-    viewport: { width: 176, height: 208 },
-    phone: "Nokia",
-    launch: { threadedStart: true }
-  }],
-  ["eb44f9787ff9cb653e797bac47c8d312c2c0d2e28f88e9bd85e4f1e4adef5c68", {
-    id: "tower-bloxx-m3g",
-    phone: "Nokia",
-    graphics3d: { backend: "WEBGL2", halfResolution: false }
-  }],
-  ["e53517c43f261a104efb70d054d138e3bc56ab7db51f87be5bd147309599eaa2", {
-    id: "cyborg-lover-mp3",
-    phone: "Nokia",
-    audio: { enabled: true, gain: 1, transcodeFallback: true }
-  }]
-]);
-
-export function resolveCompatibilityProfile(source, override = {}) {
-  const digest = String(source?.sha256 ?? "").toLowerCase();
-  const known = profileCatalog.get(digest) ?? {};
-  const merged = mergeProfile(DEFAULT_COMPATIBILITY_PROFILE, known, override);
+// Content hashes identify bytes and saves; only explicit standard settings
+// may change emulation behavior.
+export function resolveCompatibilityProfile(_source, override = {}) {
+  const merged = mergeProfile(DEFAULT_COMPATIBILITY_PROFILE, override);
   if (!validCompatibilityProfile(merged)) throw new Error("J2ME_COMPATIBILITY_PROFILE_INVALID");
   return deepFreeze(merged);
 }
@@ -86,23 +63,23 @@ export function encodeCoreProfile(profile) {
     `sound=${profile.audio.enabled ? "on" : "off"}`,
     `m3g.backend=${profile.graphics3d.backend.toLowerCase()}`,
     `m3g.halfResolution=${profile.graphics3d.halfResolution ? "on" : "off"}`,
-    `midlet.launch=${profile.launch.threadedStart ? "thread" : "direct"}`,
+    `midlet.number=${profile.launch.midletNumber ?? ""}`,
     ""
   ].join("\n");
 }
 
-function mergeProfile(base, known, override) {
+function mergeProfile(base, override) {
   return {
     schemaVersion: 1,
-    id: override.id ?? known.id ?? base.id,
-    viewport: { ...base.viewport, ...known.viewport, ...override.viewport },
-    frameRate: override.frameRate ?? known.frameRate ?? base.frameRate,
-    phone: override.phone ?? known.phone ?? base.phone,
-    rotation: override.rotation ?? known.rotation ?? base.rotation,
-    input: { ...base.input, ...known.input, ...override.input },
-    audio: { ...base.audio, ...known.audio, ...override.audio },
-    graphics3d: { ...base.graphics3d, ...known.graphics3d, ...override.graphics3d },
-    launch: { ...base.launch, ...known.launch, ...override.launch }
+    id: override.id ?? base.id,
+    viewport: { ...base.viewport, ...override.viewport },
+    frameRate: override.frameRate ?? base.frameRate,
+    phone: override.phone ?? base.phone,
+    rotation: override.rotation ?? base.rotation,
+    input: { ...base.input, ...override.input },
+    audio: { ...base.audio, ...override.audio },
+    graphics3d: { ...base.graphics3d, ...override.graphics3d },
+    launch: { ...base.launch, ...override.launch }
   };
 }
 
@@ -118,8 +95,8 @@ function validCompatibilityProfile(value) {
     value.audio.gain >= 0 && value.audio.gain <= 2 && typeof value.audio.transcodeFallback === "boolean" &&
     plainObject(value.graphics3d) && onlyKeys(value.graphics3d, ["backend", "halfResolution"]) &&
     graphicsBackends.includes(value.graphics3d.backend) && typeof value.graphics3d.halfResolution === "boolean" &&
-    plainObject(value.launch) && onlyKeys(value.launch, ["threadedStart"]) &&
-    typeof value.launch.threadedStart === "boolean";
+    plainObject(value.launch) && onlyKeys(value.launch, ["midletNumber"]) &&
+    (value.launch.midletNumber === null || integerRange(value.launch.midletNumber, 1, 9999));
 }
 
 function onlyKeys(value, allowed) {

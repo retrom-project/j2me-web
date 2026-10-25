@@ -34,7 +34,7 @@ export class GameRuntimeController {
       this.transition("LOADING");
       this.loadingAbort.signal.throwIfAborted();
       const adapter = await this.mountAdapter(target, this.reportProgress, this.reportExitRequested,
-        this.reportFailure, this.loadingAbort.signal);
+        this.reportFailure, this.loadingAbort.signal, this.requestStartupInteraction);
       if (this.loadingAbort.signal.aborted || this.state !== "LOADING") {
         await adapter.exit();
         throw new DOMException("Aborted", "AbortError");
@@ -157,6 +157,34 @@ export class GameRuntimeController {
     return () => { this.listeners.delete(listener); };
   }
 
+  requestStartupInteraction = (interaction) => {
+    this.requireState("LOADING");
+    if (this.startupInteraction || !interaction || typeof interaction.id !== "string" ||
+      typeof interaction.title !== "string" || !Array.isArray(interaction.choices) || !interaction.choices.length ||
+      interaction.choices.length > 9999 || interaction.choices.some(choice => typeof choice.id !== "string" || typeof choice.label !== "string")) {
+      throw new Error("STARTUP_INTERACTION_INVALID");
+    }
+    return new Promise((resolve, reject) => {
+      const abort = () => { this.startupInteraction = null; this.emit({type: "STARTUP_INTERACTION", interaction: null}); reject(new DOMException("Aborted", "AbortError")); };
+      const signal = this.loadingAbort.signal;
+      signal.throwIfAborted();
+      this.startupInteraction = {interaction, resolve, abort};
+      signal.addEventListener("abort", abort, {once: true});
+      this.emit({type: "STARTUP_INTERACTION", interaction});
+    });
+  };
+
+  respondToStartupInteraction(id, choiceId) {
+    this.requireState("LOADING");
+    const pending = this.startupInteraction;
+    if (!pending || pending.interaction.id !== id || !pending.interaction.choices.some(choice => choice.id === choiceId))
+      throw new Error("STARTUP_INTERACTION_INVALID");
+    this.startupInteraction = null;
+    this.loadingAbort.signal.removeEventListener("abort", pending.abort);
+    this.emit({type: "STARTUP_INTERACTION", interaction: null});
+    pending.resolve(choiceId);
+  }
+
   reportProgress = (progress) => {
     if (this.state !== "LOADING" || !validProgress(progress)) return;
     this.emit({ type: "LOAD_PROGRESS", ...progress });
@@ -258,7 +286,8 @@ export class GameRuntimeController {
     this.adapter = null;
     if (this.state !== "FAILED" && this.state !== "EXITED") this.transition("FAILED");
     try { await adapter?.exit(); } catch { /* Preserve the original failure. */ }
-    this.emit({ type: "FATAL_ERROR", code: stableError(error).message });
+    this.emit({ type: "FATAL_ERROR", code: stableError(error).message,
+      ...(typeof error?.cause?.message === "string" ? {reason: error.cause.message.slice(-1000)} : {}) });
     this.abortSignal?.removeEventListener("abort", this.abort);
   }
 

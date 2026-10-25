@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+MIDlet-Name: Owned startup fixture
+MIDlet-Vendor: Retrom
+MIDlet-Version: 1.0
+MIDlet-1: Native save,,org.j2me.test.NativeSaveFixtureMidlet
+

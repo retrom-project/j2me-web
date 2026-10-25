@@ -68,8 +68,8 @@ export function createRuntime(config, options = {}) {
   validateRuntimeConfig(config);
   validateRuntimeOptions(options);
   return new GameRuntimeController(
-    (target, reportProgress, reportExitRequested, reportFailure, signal) => mountJ2me(
-      config, target, { ...options, signal }, reportProgress, reportExitRequested, reportFailure
+    (target, reportProgress, reportExitRequested, reportFailure, signal, requestStartupInteraction) => mountJ2me(
+      config, target, { ...options, signal, requestStartupInteraction }, reportProgress, reportExitRequested, reportFailure
     ),
     capabilities,
     options.signal ?? null
@@ -165,6 +165,9 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
   let coreFailed = false;
   let coreError = null;
   const hostBridgeReady = deferred();
+  let startupWaiting = false;
+  let startupLastExecution = frameWindow.performance.now();
+  let startupChoiceRequested = false;
   const pressedGamepadKeys = new Set();
   const pressedVirtualKeys = new Set();
   let inputProbe = null;
@@ -209,8 +212,33 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
       return;
     }
     diagnostic(`${error ? "[error] " : ""}${message}`);
+    if (/HOST_STARTUP_EXECUTING/u.test(String(message))) {
+      startupWaiting = false;
+      startupLastExecution = frameWindow.performance.now();
+    }
+    if (String(message).includes("HOST_STARTUP_CHOICES ") && !startupChoiceRequested) {
+      startupChoiceRequested = true;
+      const encoded = String(message).split("HOST_STARTUP_CHOICES ")[1];
+      try {
+        const choices = encoded.split(",").map(entry => {
+          const [id, hex] = entry.split("=");
+          if (!/^[1-9][0-9]{0,3}$/u.test(id) || !/^(?:[a-f0-9]{2})*$/u.test(hex)) throw new Error("J2ME_STARTUP_CHOICES_INVALID");
+          return {id, label: new TextDecoder().decode(Uint8Array.from(hex.match(/../gu) ?? [], byte => parseInt(byte, 16)))};
+        });
+        startupWaiting = true;
+        Promise.resolve(options.requestStartupInteraction({id: "midlet-entry", title: "选择启动入口", choices})).then(id => {
+          if (exited || signal.aborted) return;
+          module.FS.writeFile("/appdata/freej2meonminijvm.jar/j2me-web-startup-choice", String(id));
+          startupWaiting = false;
+          startupLastExecution = frameWindow.performance.now();
+        }).catch(error => { if (!signal.aborted && !exited) fatal(error); });
+      } catch (error) { fatal(error); }
+    }
     if (/HOST_BRIDGE_READY/u.test(String(message))) hostBridgeReady.resolve();
-    if (/HOST_BRIDGE_FAILED/u.test(String(message))) fatal(new Error("J2ME_HOST_BRIDGE_UNAVAILABLE"));
+    if (/HOST_BRIDGE_FAILED/u.test(String(message))) {
+      const reason = String(message).split("HOST_BRIDGE_FAILED")[1].trim();
+      fatal(new Error("J2ME_STARTUP_FAILED", {cause: new Error(reason)}));
+    }
     if (!exitReported && /MIDLET_EXIT_REQUESTED|MIDlet sent Destroyed Notification|APP TERMINATED!/u.test(String(message))) {
       exitReported = true;
       reportExitRequested();
@@ -294,7 +322,17 @@ async function mountJ2me(config, target, options, reportProgress, reportExitRequ
     signal.throwIfAborted();
     if (typeof module.callMain !== "function") throw new Error("J2ME_RUNTIME_ASSET_INVALID");
     module.callMain(moduleOptions.arguments);
-    await withTimeout(frameWindow, hostBridgeReady.promise, 60000, "J2ME_HOST_BRIDGE_UNAVAILABLE", signal);
+    // User think time has no execution deadline. Only a published, actionable
+    // choice suspends this clock; parsing/loading/selected startup remain bounded.
+    let ready = false;
+    hostBridgeReady.promise.then(() => { ready = true; }, () => undefined);
+    while (!ready) {
+      signal.throwIfAborted();
+      if (coreError) throw coreError;
+      if (!startupWaiting && frameWindow.performance.now() - startupLastExecution > 60000)
+        throw new Error("J2ME_HOST_BRIDGE_UNAVAILABLE");
+      await new Promise(resolve => frameWindow.setTimeout(resolve, 20));
+    }
     surface.source.focus({ preventScroll: true });
     const mirror = () => {
       if (exited) return;
@@ -909,5 +947,5 @@ function deferred() {
 function stableJ2meError(error) {
   if (error?.name === "AbortError") return new DOMException("Aborted", "AbortError");
   if (error instanceof Error && /^(?:J2ME|RUNTIME|CHECKPOINT|PLAYER)_[A-Z0-9_]+$/u.test(error.message)) return error;
-  return new Error("J2ME_RUNTIME_FAILED");
+  return new Error("J2ME_RUNTIME_FAILED", {cause: error});
 }

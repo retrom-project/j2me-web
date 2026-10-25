@@ -26,6 +26,9 @@
       "virtualKeyInput": true,
       "virtualKeyActions": ["UP", "DOWN", "LEFT", "RIGHT", "FIRE", "SOFT_LEFT", "SOFT_RIGHT", "DIGIT_0", "DIGIT_1", "DIGIT_2", "DIGIT_3", "DIGIT_4", "DIGIT_5", "DIGIT_6", "DIGIT_7", "DIGIT_8", "DIGIT_9", "STAR", "POUND"],
       "compatibilityProfiles": true,
+      "startupInteraction": "CHOICE",
+      "midletStartup": "AMS_THREAD",
+      "automaticContentIdentityOverrides": false,
       "frameCounter": true,
       "audioCodecs": ["MIDI", "WAV", "PCM", "AMR-NB", "AMR-WB", "AAC", "MP3"],
       "validationProbes": [

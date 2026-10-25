@@ -23,3 +23,10 @@ test("rejects malformed record IDs without interpreting them as paths", () => {
     assert.throws(() => assertCompleteRmsTree([metadata(ids), record(1)]), /J2ME_RMS_STORAGE_INCOMPLETE/u);
   }
 });
+
+
+test("blocks checkpoints throughout a delta commit and its incomplete staging writes", () => {
+  for (const path of ["suite/store.txn", "suite/store.txn.tmp", "suite/store.1.tmp", "suite/store.rms.tmp"]) {
+    assert.throws(() => assertCompleteRmsTree([metadata([1]), record(1, [9]), {path, bytes: Uint8Array.of(1)}]), /J2ME_RMS_STORAGE_INCOMPLETE/u);
+  }
+});

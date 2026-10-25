@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+MIDlet-Name: Owned startup fixture
+MIDlet-Vendor: Retrom
+MIDlet-Version: 1.0
+MIDlet-1: First,,org.j2me.test.StartupFixtureMidlet
+Fixture-Start: fail
+

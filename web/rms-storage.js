@@ -3,6 +3,11 @@
  * This detects that incomplete write; it cannot determine game-level progress.
  */
 export function assertCompleteRmsTree(files) {
+  // Delta commits publish metadata last and remove their undo journal before
+  // returning. A VM safepoint inside that transaction is not exportable.
+  if (files.some(({path}) => path.endsWith(".txn") || path.endsWith(".tmp"))) {
+    throw new Error("J2ME_RMS_STORAGE_INCOMPLETE");
+  }
   const paths = new Set(files.map(({ path }) => path));
   for (const file of files) {
     if (!file.path.endsWith(".rms")) continue;

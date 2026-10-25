@@ -5,11 +5,11 @@ PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CACHE_ROOT="$PROJECT_ROOT/.cache/upstream"
 OUTPUT_ROOT="$PROJECT_ROOT/public/runtime"
 MINIJVM_REPOSITORY="${MINIJVM_REPOSITORY:-https://github.com/retrom-project/miniJVM.git}"
-MINIJVM_COMMIT="${MINIJVM_COMMIT:-db68606b95437c9c634e624c65e6a74033fdf1bf}"
+MINIJVM_COMMIT="${MINIJVM_COMMIT:-e9cfeb764025d87ea323a77969c5fcb34854ac2f}"
 FREEJ2ME_REPOSITORY="${FREEJ2ME_REPOSITORY:-https://github.com/retrom-project/freej2meOnMinijvm.git}"
-FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-a99b9830650976f13495a28518689c54c4c33b4e}"
+FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-dbadb72b6ca4afde8b4790c77cfebd855070d20f}"
 FREEJ2ME_PLUS_REPOSITORY="${FREEJ2ME_PLUS_REPOSITORY:-https://github.com/retrom-project/freej2me-plus.git}"
-FREEJ2ME_PLUS_COMMIT="${FREEJ2ME_PLUS_COMMIT:-69084d55ea659249ef3c5697f9ad36285e0de3c4}"
+FREEJ2ME_PLUS_COMMIT="${FREEJ2ME_PLUS_COMMIT:-e2b4ddff0476f90b5fe33474b66c5ad681e654e7}"
 TINYSOUNDFONT_REPOSITORY="https://github.com/schellingb/TinySoundFont.git"
 TINYSOUNDFONT_COMMIT="853a0a171759f1ddba0de1442133a75912bbeffa"
 FFMPEG_REPOSITORY="https://github.com/FFmpeg/FFmpeg.git"
@@ -162,6 +162,7 @@ cp -R "$PLUS/META-INF/." /build/classes/freej2me-plus/META-INF/
 jar cf "$DIST/lib/freej2me-plus.jar" -C /build/classes/freej2me-plus .
 java -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmPlatformPlayerTest
 java -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmKeyStateTest
+java -Djava.awt.headless=true -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmDisplayTransitionTest
 java -Djava.awt.headless=true -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmAlphaCompositingTest
 java -Djava.awt.headless=true -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmPixelBlitterTest
 java -cp /build/classes/freej2me-plus org.recompile.freej2me.MiniJvmFrontendProfileTest
@@ -194,6 +195,7 @@ if [[ -d "$APP/src/test/java" ]]; then
     com.ebsee.emu.audio.DeferredAudioHandleTest
   java -cp "/build/classes/freej2me:/build/classes/freej2me-tests:$DIST/lib/freej2me-plus.jar" \
     com.ebsee.emu.CompatibilityProfileReaderTest
+  java -cp /build/classes/freej2me-tests com.ebsee.emu.MidiCompatibilityTest /build/classes/freej2me
   java -cp "/build/classes/freej2me:/build/classes/freej2me-tests:$DIST/lib/freej2me-plus.jar" \
     com.mascotcapsule.micro3d.v3.MiniJvmMicro3dCoreTest
 fi
@@ -237,6 +239,16 @@ javac -source 8 -target 8 -encoding UTF-8 \
   -cp "$DIST/lib/freej2me-plus.jar:$DIST/lib/glfw_gui.jar" \
   -d /build/classes/alpha-compositing /project/test/java/org/j2me/test/AlphaCompositingMidlet.java
 jar cfm /build/alpha-compositing.jar /project/test/java/alpha-compositing.mf -C /build/classes/alpha-compositing .
+mkdir -p /build/classes/startup-fixtures
+javac -source 8 -target 8 -cp "$DIST/lib/freej2me-plus.jar" -d /build/classes/startup-fixtures \
+  /project/test/java/org/j2me/test/StartupFixtureMidlet.java /project/test/java/org/j2me/test/NativeSaveFixtureMidlet.java
+for kind in single multi reordered loop prompt fail native-save; do
+  jar cfm "/build/startup-$kind.jar" "/project/test/java/startup-$kind.mf" -C /build/classes/startup-fixtures .
+done
+java -cp /build/classes/freej2me-plus javax.microedition.rms.RecordStoreStorageTest
+java -Djava.awt.headless=true -cp /build/classes/freej2me-plus org.recompile.mobile.MiniJvmRecordStoreTest /build/lifecycle.jar
+mkdir -p /build/classes/vm-tests
+javac -source 8 -target 8 -d /build/classes/vm-tests "$MINI/minijvm/test/java/ClassInitializationTest.java" "$MINI/minijvm/test/java/ClassInitializationReentryTest.java"
 '
 
 echo "[2/4] Compiling miniJVM to WebAssembly"
@@ -249,6 +261,10 @@ docker run --rm \
 set -euo pipefail
 mapfile -t vm_sources < <(find minijvm/c -type f -name "*.c" ! -path "*/utils/sljit/*" ! -path "*/utils/mimalloc/*" ! -path "*/cmake-*" ! -path "*/.*")
 mapfile -t gui_sources < <(find desktop/glfw_gui/c -type f -name "*.c" ! -path "*/glad/glad.c")
+
+bash minijvm/test/native/run-zip-test.sh
+bash minijvm/test/native/run-lock-test.sh
+bash minijvm/test/native/run-vm-test.sh /build/dist/lib /build/classes/vm-tests:/build/classes/freej2me-tests
 
 cc -std=c11 -O2 -Wall -Wextra -Werror desktop/glfw_gui/test/pixel_buffer_test.c -lm -o /build/pixel-buffer-test
 /build/pixel-buffer-test
@@ -320,7 +336,7 @@ cp "$BUILD_ROOT/audio-transcoder/audio-transcoder.glue.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/audio-transcoder.worker.js" "$OUTPUT_ROOT/"
 cp "$PROJECT_ROOT/web/runtime-loader.js" "$OUTPUT_ROOT/"
 mkdir -p "$PROJECT_ROOT/.cache/test-runtime"
-cp "$BUILD_ROOT/lifecycle.jar" "$BUILD_ROOT/instant-checkpoint.jar" "$BUILD_ROOT/rms-persistence.jar" "$BUILD_ROOT/rendering-performance.jar" "$BUILD_ROOT/alpha-compositing.jar" "$BUILD_ROOT/presentation.jar" "$PROJECT_ROOT/.cache/test-runtime/"
+cp "$BUILD_ROOT/lifecycle.jar" "$BUILD_ROOT/instant-checkpoint.jar" "$BUILD_ROOT/rms-persistence.jar" "$BUILD_ROOT/rendering-performance.jar" "$BUILD_ROOT/alpha-compositing.jar" "$BUILD_ROOT/presentation.jar" "$BUILD_ROOT"/startup-*.jar "$PROJECT_ROOT/.cache/test-runtime/"
 
 if [[ -f "$BUILD_ROOT/build-inputs.json" ]]; then
   cp "$BUILD_ROOT/build-inputs.json" "$OUTPUT_ROOT/build-inputs.json"
