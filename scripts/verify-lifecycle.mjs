@@ -22,7 +22,9 @@ try {
   browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || "/usr/bin/google-chrome", headless: true,
     args: ["--no-sandbox", "--disable-dev-shm-usage", "--enable-unsafe-swiftshader"] });
   await check("uncaught Wasm and rejected runtime tasks fail immediately in loading and running", async () => {
-    const page = await browser.newPage();
+    // Keep its content cache independent of the download-cancellation fixture.
+    const context = await browser.createBrowserContext();
+    const page = await context.newPage();
     try {
       await page.goto(origin);
       const results = await page.evaluate(async () => {
@@ -80,7 +82,7 @@ try {
       assert.deepEqual(results, ["LOADING", "RUNNING", "REJECTION"].map(phase => ({
         phase, state: "FAILED", fatals: 1, disposed: true, originalCause: true, exitState: "FAILED", children: 0
       })));
-    } finally {await page.close();}
+    } finally {await context.close();}
   });
   await check("abort during download cannot create a surface after exit", async () => {
     const page = await browser.newPage();
@@ -145,7 +147,7 @@ try {
         const events = [];
         const runtime = createRuntime(config, { frameWindow: window, moduleFactory: async (value) => {
           activeOptions = value; value.onRuntimeInitialized();
-          return { FS: { analyzePath: () => ({ exists: false }) },
+          return { FS: { analyzePath: () => ({ exists: false }) }, _j2me_get_frame_count: () => 0,
             callMain: () => value.print("HOST_BRIDGE_READY"), PThread: { terminateAllThreads() {} } };
         } });
         runtime.subscribe((event) => events.push(event));
@@ -181,7 +183,7 @@ try {
               storage: "HOST", viewport: { width: 240, height: 320 } } },
           { frameWindow: window, moduleFactory: async (options) => {
             options.onRuntimeInitialized();
-            return { callMain: () => options.print("HOST_BRIDGE_READY"),
+            return { callMain: () => options.print("HOST_BRIDGE_READY"), _j2me_get_frame_count: () => 0,
               FS: { streams: [], analyzePath: () => ({ exists: true }), readdir: () => ["store.rms", "store.1"],
                 stat: () => ({ mode: 1, size: 64 }), isDir: () => false,
                 readFile: (path) => path.endsWith(".rms")
