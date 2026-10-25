@@ -5,7 +5,7 @@ PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CACHE_ROOT="$PROJECT_ROOT/.cache/upstream"
 OUTPUT_ROOT="$PROJECT_ROOT/public/runtime"
 MINIJVM_REPOSITORY="${MINIJVM_REPOSITORY:-https://github.com/retrom-project/miniJVM.git}"
-MINIJVM_COMMIT="${MINIJVM_COMMIT:-a4b94e3a18d29d6df707c14ed7ce4b487bd8aa93}"
+MINIJVM_COMMIT="${MINIJVM_COMMIT:-e96e3b124e433d69bcfb5d23249738fa6453bcd6}"
 FREEJ2ME_REPOSITORY="${FREEJ2ME_REPOSITORY:-https://github.com/retrom-project/freej2meOnMinijvm.git}"
 FREEJ2ME_COMMIT="${FREEJ2ME_COMMIT:-dbadb72b6ca4afde8b4790c77cfebd855070d20f}"
 FREEJ2ME_PLUS_REPOSITORY="${FREEJ2ME_PLUS_REPOSITORY:-https://github.com/retrom-project/freej2me-plus.git}"
@@ -152,6 +152,7 @@ javac -source 8 -target 8 -encoding UTF-8 \
   "$MINI/extlib/xgui/src/test/java/org/mini/apploader/AppLoaderClassPathTest.java"
 java -cp "/build/classes/xgui-tests:$DIST/lib/xgui.jar:$DIST/lib/glfw_gui.jar:$DIST/lib/minijvm_rt.jar" \
   org.mini.apploader.AppLoaderClassPathTest
+bash "$MINI/minijvm/test/gui-publication/run-test.sh" "$DIST/lib"
 
 # Build FreeJ2ME-Plus from the pinned fork source with the full JDK 8 API. The
 # miniJVM adapter supplies the AWT and Java Sound implementations at runtime.

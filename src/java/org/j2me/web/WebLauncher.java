@@ -55,7 +55,9 @@ public final class WebLauncher {
                     // the GUI application's public lifecycle before resolving its
                     // classes, so the bridge cannot steal their initialization.
                     while (app.getState() != GApplication.AppState.STATE_RUNNING) {
-                        if (app.getState() == GApplication.AppState.STATE_CLOSED) return;
+                        if (app.getState() == GApplication.AppState.STATE_CLOSED) {
+                            throw new IllegalStateException("APP_CLOSED_DURING_STARTUP");
+                        }
                         Thread.sleep(10L);
                     }
                     ClassLoader loader = app.getClass().getClassLoader();
