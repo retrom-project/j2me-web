@@ -2,7 +2,7 @@
 
 `j2me-web` 是一个不依赖 CheerpJ 的开源 J2ME 浏览器运行时。它将 miniJVM 编译为 WebAssembly，使用 FreeJ2ME Plus 实现 MIDP 及常见厂商 API，并提供可嵌入其他 Web 应用的公共 JavaScript API。
 
-当前版本为 `0.3.4`。构建输入现由 `retrom-project` organization 管理；运行时排除上游附带的游戏 JAR，并提供显式 PFB 核心候选构建接口。当前 checkpoint 仍是 RMS 文件树，通过 Retrom 的 `GAME_SAVE` 语义接入，需要在游戏内保存和读档，不提供即时执行状态恢复。
+当前版本为 `0.4.0`。构建输入现由 `retrom-project` organization 管理；运行时排除上游附带的游戏 JAR，并提供显式 PFB 核心候选构建接口。当前 checkpoint 仍是 RMS 文件树，通过 Retrom 的 `GAME_SAVE` 语义接入，需要在游戏内保存和读档，不提供即时执行状态恢复。
 
 ## 主要能力
 
@@ -11,7 +11,7 @@
 - MIDI、PCM/WAV，以及 AMR、AAC、MP3 的浏览器解码回退。
 - M3G 和 Mascot Capsule 3D 的 WebGL2 后端。
 - RMS 浏览器持久化和可由宿主保管的 checkpoint。
-- 按 JAR SHA-256 选择屏幕、机型、输入、音频和 3D 兼容策略。
+- 统一后台启动与公开的多入口选择；屏幕、机型、输入、音频和 3D 使用显式标准设置，内容哈希仅用于完整性、缓存和存档隔离。
 
 ## 快速开始
 

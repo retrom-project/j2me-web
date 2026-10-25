@@ -13,8 +13,6 @@
     "runtime.worker.js",
     "audio-transcoder.wasm",
     "audio-transcoder.worker.js",
-    "runtime-manifest.json",
-    "THIRD_PARTY_NOTICES.md",
-    "build-inputs.json"
+    "THIRD_PARTY_NOTICES.md"
   ]
 }

@@ -202,3 +202,33 @@ test("a failure racing with exit does not invalidate the exit transition", async
   assert.equal(runtime.getState(), "EXITED");
   assert.equal(exits, 1);
 });
+
+test("startup choices stay LOADING, validate replies and cancel without READY", async () => {
+  let selected;
+  const events = [];
+  const runtime = new GameRuntimeController(async (_target, _progress, _exit, _failure, _signal, choose) => {
+    selected = await choose({id: "entry", title: "Choose entry", choices: [{id: "2", label: "Second"}, {id: "3", label: "Third"}]});
+    return adapterFixture();
+  }, capabilities);
+  runtime.subscribe(event => events.push(event));
+  const mounting = runtime.mount({});
+  await Promise.resolve();
+  assert.equal(runtime.getState(), "LOADING");
+  assert.ok(events.some(event => event.type === "STARTUP_INTERACTION" && event.interaction?.id === "entry"));
+  assert.throws(() => runtime.respondToStartupInteraction("entry", "1"), /STARTUP_INTERACTION_INVALID/);
+  runtime.respondToStartupInteraction("entry", "3");
+  await mounting;
+  assert.equal(selected, "3");
+  assert.equal(runtime.getState(), "RUNNING");
+  await runtime.exit();
+
+  const cancelled = new GameRuntimeController(async (_t, _p, _e, _f, _s, choose) => {
+    await choose({id: "entry", title: "Choose", choices: [{id: "1", label: "One"}]});
+    return adapterFixture();
+  }, capabilities);
+  const pending = cancelled.mount({});
+  const rejected = assert.rejects(pending, {name: "AbortError"});
+  await cancelled.exit();
+  await rejected;
+  assert.equal(cancelled.getState(), "EXITED");
+});

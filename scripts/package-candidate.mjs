@@ -17,7 +17,7 @@ if (!info.isDirectory() || info.isSymbolicLink() || (await readdir(output)).leng
 if (action === "finalize") {
   const manifest = JSON.parse(await readFile(join(root, "runtime-manifest.json"), "utf8"));
   const fork = JSON.parse(await readFile(join(root, "retrom-fork.json"), "utf8"));
-  const assets = [...manifest.assets, "runtime-manifest.json", "THIRD_PARTY_NOTICES.md", "build-inputs.json"].sort();
+  const assets = [...manifest.assets, "THIRD_PARTY_NOTICES.md"].sort();
   if (fork.adapterAbi !== manifest.adapter.adapterAbi || JSON.stringify([...fork.candidateAssets].sort()) !== JSON.stringify(assets)) {
     throw new Error("PFB_CANDIDATE_MANIFEST_INVALID");
   }
@@ -36,10 +36,11 @@ if (action === "finalize") {
     if (!bytes.length) throw new Error("PFB_CANDIDATE_ASSET_INVALID");
     await writeFile(join(output, filename), bytes);
   }
-  for (const filename of ["runtime-manifest.json", "THIRD_PARTY_NOTICES.md"]) {
+  for (const filename of ["THIRD_PARTY_NOTICES.md"]) {
     await writeFile(join(output, filename), await readFile(join(root, filename)));
   }
-  await writeFile(join(output, "build-inputs.json"), await readFile(join(root, "public/runtime/build-inputs.json")));
+  // Build inputs remain in public/runtime/build-inputs.json for the local build
+  // report. Candidate files exactly match the Provider source declaration.
   const files = [];
   for (const filename of (await readdir(output)).sort()) {
     const bytes = await readFile(join(output, filename));
